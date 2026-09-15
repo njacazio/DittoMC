@@ -1,0 +1,132 @@
+html {
+    /*
+     * CERN blue / UPO red palette
+     *
+     * CERN blue : institutional blue
+     * UPO red   : university accent
+     */
+
+    --primary-color: #0053a6;
+    --primary-dark-color: #003c7a;
+    --primary-light-color: #5f9fe5;
+
+    --page-background-color: #ffffff;
+    --page-foreground-color: #243447;
+    --page-secondary-foreground-color: #64748b;
+
+    --fragment-background: #f6f8fa;
+    --fragment-foreground: #1f2937;
+
+    --border-radius-small: 6px;
+    --border-radius-medium: 10px;
+    --border-radius-large: 14px;
+
+    --content-maxwidth: 1150px;
+}
+
+@media (prefers-color-scheme: dark) {
+    html:not(.light-mode) {
+        --primary-color: #5f9fe5;
+        --primary-dark-color: #a9c9f5;
+        --primary-light-color: #003c7a;
+
+        --page-background-color: #11151c;
+        --page-foreground-color: #e7edf5;
+        --page-secondary-foreground-color: #9ba8b8;
+
+        --fragment-background: #181d27;
+        --fragment-foreground: #e5e7eb;
+    }
+}
+
+/* -------------------------------------------------------------------------
+   Ditto branding
+   ------------------------------------------------------------------------- */
+
+#titlearea {
+    min-height: 88px;
+}
+
+#titlearea table {
+    width: 100%;
+    border-spacing: 0;
+    min-height: 88px;
+}
+
+#titlearea tr {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 88px;
+}
+
+#projectlogo {
+    padding: 0.75em 0 0.75em 0.75em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#projectlogo img {
+    display: block;
+    max-height: 100px;
+    width: auto;
+    border: 0;
+    border-radius: var(--border-radius-medium);
+}
+
+#projectalign {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding-left: 0;
+}
+
+#projectname {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+#projectbrief {
+    opacity: 0.75;
+}
+
+/* Give the front page some air */
+.contents {
+    line-height: 1.65;
+}
+
+/* Cleaner section titles */
+h1,
+h2,
+h3 {
+    letter-spacing: -0.025em;
+}
+
+/* CERN blue → UPO red accent rule */
+.contents h1::after {
+    content: "";
+    display: block;
+    width: 72px;
+    height: 4px;
+    margin-top: 12px;
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        #0053a6 0%,
+        #0053a6 45%,
+        #b5152b 100%
+    );
+}
+
+/* Softer API boxes */
+.memitem {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* More modern code blocks */
+div.fragment {
+    border-radius: 10px;
+}

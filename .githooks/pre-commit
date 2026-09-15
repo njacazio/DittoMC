@@ -1,0 +1,11 @@
+#!/bin/sh
+
+git diff --cached --name-only --diff-filter=ACM |
+while IFS= read -r file; do
+    case "$file" in
+        *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp|*.hxx|*.C)
+            clang-format -i -- "$file" || exit 1
+            git add -- "$file"
+            ;;
+    esac
+done
