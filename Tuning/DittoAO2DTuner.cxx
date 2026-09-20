@@ -57,6 +57,12 @@ constexpr std::uint8_t kProducedByTransport = 0x1;
 constexpr std::uint8_t kPhysicalPrimary = 0x4;
 constexpr float kMaxPhysicalPrimaryRadius = 5.f; // cm, O2 definition
 
+// Remote ROOT I/O tuning. The TTree cache is intentionally large because the
+// AO2D hot path reads a small, fixed set of branches from high-latency AliEn
+// files. TChain only keeps the cache for the currently active file/tree.
+constexpr Long64_t kParticleTreeCacheSize = 512LL * 1024LL * 1024LL; // 512 MiB
+constexpr Int_t kFileReadaheadSize = 4 * 1024 * 1024;                // 4 MiB
+
 volatile std::sig_atomic_t gStopRequested = 0;
 
 void handleSigint(int)
@@ -106,6 +112,27 @@ class ScopedSigintHandler
 
  private:
   struct sigaction mPreviousAction{};
+};
+
+class ScopedFileReadahead
+{
+ public:
+  explicit ScopedFileReadahead(Int_t size)
+    : mPreviousSize(TFile::GetReadaheadSize())
+  {
+    TFile::SetReadaheadSize(size);
+  }
+
+  ~ScopedFileReadahead()
+  {
+    TFile::SetReadaheadSize(mPreviousSize);
+  }
+
+  ScopedFileReadahead(const ScopedFileReadahead&) = delete;
+  ScopedFileReadahead& operator=(const ScopedFileReadahead&) = delete;
+
+ private:
+  Int_t mPreviousSize = 0;
 };
 
 bool startsWith(const std::string& value, const std::string& prefix)
@@ -536,20 +563,12 @@ struct AO2DTunerImpl {
               << "  collision table : " << collisionTreeName << "\n";
   }
 
-  void discoverInputSchema()
+  void appendOpenFileToChain(TFile& file,
+                             const std::string& fileName,
+                             const std::vector<std::string>& directories)
   {
-    auto file = openAO2D(config.mInputFiles.front());
-    const auto directories = dataframeDirectoryNames(*file);
-    discoverSchema(*file, directories);
-  }
-
-  void appendFileToChain(const std::string& fileName, std::size_t fileIndex)
-  {
-    auto file = openAO2D(fileName);
-    const auto directories = dataframeDirectoryNames(*file);
-
     for (const auto& directoryName : directories) {
-      auto& directory = dataframeDirectory(*file, directoryName);
+      auto& directory = dataframeDirectory(file, directoryName);
       auto& particleTree = exactTree(directory, particleTreeName, fileName);
       auto& collisionTree = exactTree(directory, collisionTreeName, fileName);
 
@@ -581,21 +600,45 @@ struct AO2DTunerImpl {
     }
   }
 
+  void appendFileToChain(const std::string& fileName)
+  {
+    auto file = openAO2D(fileName);
+    const auto directories = dataframeDirectoryNames(*file);
+    appendOpenFileToChain(*file, fileName, directories);
+  }
+
   void buildInputChain(std::size_t firstFile, std::size_t lastFile)
   {
     chunks.clear();
-
-    particleChain = std::make_unique<TChain>(particleTreeName.c_str());
-
     totalParticleEntries = 0;
     totalInputEvents = 0;
+
+    // On the first batch, discover the schema and index the first AO2D using
+    // the same remote TFile handle. This avoids opening the first AliEn file
+    // once for schema discovery and a second time immediately afterwards.
+    std::unique_ptr<TFile> firstOpenFile;
+    std::vector<std::string> firstDirectories;
+    if (particleTreeName.empty()) {
+      firstOpenFile = openAO2D(config.mInputFiles[firstFile]);
+      firstDirectories = dataframeDirectoryNames(*firstOpenFile);
+      discoverSchema(*firstOpenFile, firstDirectories);
+    }
+
+    particleChain = std::make_unique<TChain>(particleTreeName.c_str());
 
     for (std::size_t i = firstFile; i < lastFile; ++i) {
       std::cout << "Ditto AO2D tuner: indexing file "
                 << i + 1 << "/" << config.mInputFiles.size()
                 << ": " << config.mInputFiles[i] << "\n";
 
-      appendFileToChain(config.mInputFiles[i], i);
+      if (i == firstFile && firstOpenFile) {
+        appendOpenFileToChain(*firstOpenFile, config.mInputFiles[i], firstDirectories);
+        firstOpenFile.reset();
+        firstDirectories.clear();
+      } else {
+        appendFileToChain(config.mInputFiles[i]);
+      }
+
       if (stopRequested()) {
         break;
       }
@@ -650,6 +693,24 @@ struct AO2DTunerImpl {
     particleChain->SetBranchStatus("fPz", true);
     particleChain->SetBranchStatus("fVx", true);
     particleChain->SetBranchStatus("fVy", true);
+
+    // AliEn/XRootD performance is dominated by network round trips. Use a
+    // large cache and register the exact hot branches up front so ROOT can
+    // prefetch compressed baskets in large blocks instead of learning the
+    // access pattern over many remote reads.
+    if (particleChain->SetCacheSize(kParticleTreeCacheSize) != 0) {
+      std::cerr << "Ditto AO2D tuner: WARNING could not configure the TTree cache\n";
+    }
+    particleChain->SetCacheLearnEntries(1);
+    particleChain->AddBranchToCache("fIndexMcCollisions", true);
+    particleChain->AddBranchToCache("fPdgCode", true);
+    particleChain->AddBranchToCache("fStatusCode", true);
+    particleChain->AddBranchToCache("fFlags", true);
+    particleChain->AddBranchToCache("fPx", true);
+    particleChain->AddBranchToCache("fPy", true);
+    particleChain->AddBranchToCache("fPz", true);
+    particleChain->AddBranchToCache("fVx", true);
+    particleChain->AddBranchToCache("fVy", true);
 
     TTreeReader reader(particleChain.get());
     TTreeReaderValue<int> mcCollisionId(reader, "fIndexMcCollisions");
@@ -740,10 +801,13 @@ struct AO2DTunerImpl {
 
     ran = true;
     ScopedSigintHandler sigintHandler;
+    ScopedFileReadahead readahead(kFileReadaheadSize);
     const auto start = std::chrono::steady_clock::now();
 
-    // Detect the AO2D schema once, from the first input file.
-    discoverInputSchema();
+    std::cout << "Ditto AO2D tuner: ROOT I/O cache "
+              << (kParticleTreeCacheSize / (1024 * 1024)) << " MiB"
+              << ", file readahead "
+              << (kFileReadaheadSize / (1024 * 1024)) << " MiB\n";
 
     const std::size_t nFiles = config.mInputFiles.size();
     const std::size_t batchSize = config.mFileBatchSize > 0 ? config.mFileBatchSize : nFiles;
