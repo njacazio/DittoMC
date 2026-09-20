@@ -25,7 +25,7 @@ echo "=== Tiny PYTHIA tuning run ==="
 
 root -l -b -q 'Tuning/exampleTuner.C(0, 500)'
 
-TUNE="Ditto_tune_pythia8_inel_136tev.root"
+TUNE="Tuning/tunes/Ditto_tune_pythia8_inel_136tev.root"
 
 if [[ ! -s "${TUNE}" ]]; then
     echo "ERROR: tune was not produced"
