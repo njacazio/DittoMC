@@ -79,8 +79,7 @@ int hepMCStatusCode(int statusCode)
 
 std::uint8_t protectedFlags(std::uint8_t flags, float vx, float vy)
 {
-  if (std::hypot(vx, vy) > kMaxPhysicalPrimaryRadius &&
-      (flags & kPhysicalPrimary) != 0u) {
+  if (std::hypot(vx, vy) > kMaxPhysicalPrimaryRadius && (flags & kPhysicalPrimary) != 0u) {
     flags = static_cast<std::uint8_t>(flags & ~kPhysicalPrimary);
   }
   return flags;
@@ -446,7 +445,6 @@ struct AO2DTunerImpl {
 
   void processFile(const std::string& fileName)
   {
-    const int eventsBefore = accumulator->processedEvents();
     if (startsWith(fileName, "alien://") && !gGrid) {
       if (TGrid::Connect("alien://") == nullptr) {
         throw std::runtime_error("Ditto::AO2DTuner: could not connect to AliEn");
@@ -468,9 +466,6 @@ struct AO2DTunerImpl {
       }
       processDirectory(*directory, fileName);
     }
-
-    const int eventsAfter = accumulator->processedEvents();
-    std::cout << "Ditto AO2D tuner: processed " << (eventsAfter - eventsBefore) << " events from " << fileName << "\n";
   }
 
   void run()
@@ -485,18 +480,34 @@ struct AO2DTunerImpl {
     ran = true;
     const auto start = std::chrono::steady_clock::now();
 
+    int counter = 0;
     for (const auto& fileName : config.mInputFiles) {
       if (reachedEventLimit()) {
         break;
       }
-      std::cout << "Ditto AO2D tuner: reading " << fileName << "\n";
+      const auto timeBefore = std::chrono::steady_clock::now();
+      std::cout << "Ditto AO2D tuner: reading file " << counter + 1 << "/" << config.mInputFiles.size() << ": " << fileName << "\n";
       processFile(fileName);
+      const auto timeAfter = std::chrono::steady_clock::now();
+      const auto singleFileElapsed = std::chrono::duration<double>(timeAfter - timeBefore).count();
+      std::cout << "\tDitto AO2D tuner: finished reading file " << counter + 1 << "/" << config.mInputFiles.size() << " in " << singleFileElapsed << "s\n";
+      const auto totalElapsed = std::chrono::duration<double>(timeAfter - start).count();
+      const auto totalEvents = accumulator->processedEvents();
+      const auto secondsPerEvent = totalEvents > 0 ? totalElapsed / static_cast<double>(totalEvents) : 0.0;
+      const auto secondsPerFile = (counter + 1) > 0 ? totalElapsed / static_cast<double>(counter + 1) : 0.0;
+      std::cout << "\t\tEvent rate: " << 1.0 / secondsPerEvent << " events/s.";
+      std::cout << "\tFile rate: " << 1.0 / secondsPerFile << " files/s.";
+      if (config.mMaxEvents > 0) {
+        std::cout << "\tETA: " << (config.mMaxEvents - totalEvents) * secondsPerEvent << " s\n";
+      } else {
+        std::cout << "\tETA: " << (config.mInputFiles.size() - counter - 1) * secondsPerFile << " s\n";
+      }
+      counter++;
     }
 
     accumulator->finalize();
 
-    const double elapsed =
-      std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
     std::cout << "\nDitto AO2D tuning complete\n"
               << "  events             : " << accumulator->processedEvents() << "\n"
@@ -508,16 +519,13 @@ struct AO2DTunerImpl {
               << "  templates stored   : " << accumulator->tune().numberOfCompositionTemplates() << "\n";
 
     if (accumulator->activityOverflowEvents() > 0) {
-      std::cout << "  WARNING activity overflow events: "
-                << accumulator->activityOverflowEvents() << "\n";
+      std::cout << "  WARNING activity overflow events: " << accumulator->activityOverflowEvents() << "\n";
     }
     if (accumulator->ptOverflowParticles() > 0) {
-      std::cout << "  WARNING pT overflow particles: "
-                << accumulator->ptOverflowParticles() << "\n";
+      std::cout << "  WARNING pT overflow particles: " << accumulator->ptOverflowParticles() << "\n";
     }
     if (accumulator->speciesMultiplicityOverflowEvents() > 0) {
-      std::cout << "  WARNING species-count overflow fills: "
-                << accumulator->speciesMultiplicityOverflowEvents() << "\n";
+      std::cout << "  WARNING species-count overflow fills: " << accumulator->speciesMultiplicityOverflowEvents() << "\n";
     }
   }
 };

@@ -19,7 +19,7 @@ void tuneAO2D(const std::string& inputFile = "aodlist.txt",
   cfg.mPythiaCard = refPythiaCard;
 
   // 0 = all MC collisions in all input files.
-  cfg.mMaxEvents = 0;
+  cfg.mMaxEvents = 1E9;
   cfg.mProgressEvery = 10000;
 
   // Closest AO2D equivalent to PYTHIA isFinal().
