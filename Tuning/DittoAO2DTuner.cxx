@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -43,6 +44,9 @@
 #include <utility>
 #include <vector>
 
+#include <signal.h>
+#include <unistd.h>
+
 namespace Ditto
 {
 
@@ -52,6 +56,57 @@ namespace
 constexpr std::uint8_t kProducedByTransport = 0x1;
 constexpr std::uint8_t kPhysicalPrimary = 0x4;
 constexpr float kMaxPhysicalPrimaryRadius = 5.f; // cm, O2 definition
+
+volatile std::sig_atomic_t gStopRequested = 0;
+
+void handleSigint(int)
+{
+  if (gStopRequested != 0) {
+    constexpr char message[] = "\nDitto AO2D tuner: second interrupt received; terminating immediately.\n";
+    ::write(STDERR_FILENO, message, sizeof(message) - 1);
+    ::_exit(130);
+  }
+
+  gStopRequested = 1;
+  constexpr char message[] =
+    "\nDitto AO2D tuner: interrupt requested; finishing the current event and finalizing. "
+    "Press Ctrl-C again to terminate immediately.\n";
+  ::write(STDERR_FILENO, message, sizeof(message) - 1);
+}
+
+bool stopRequested() noexcept
+{
+  return gStopRequested != 0;
+}
+
+class ScopedSigintHandler
+{
+ public:
+  ScopedSigintHandler()
+  {
+    gStopRequested = 0;
+
+    struct sigaction action{};
+    action.sa_handler = handleSigint;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = SA_RESTART;
+
+    if (sigaction(SIGINT, &action, &mPreviousAction) != 0) {
+      throw std::runtime_error("Ditto::AO2DTuner: could not install SIGINT handler");
+    }
+  }
+
+  ~ScopedSigintHandler()
+  {
+    sigaction(SIGINT, &mPreviousAction, nullptr);
+  }
+
+  ScopedSigintHandler(const ScopedSigintHandler&) = delete;
+  ScopedSigintHandler& operator=(const ScopedSigintHandler&) = delete;
+
+ private:
+  struct sigaction mPreviousAction{};
+};
 
 bool startsWith(const std::string& value, const std::string& prefix)
 {
@@ -390,10 +445,10 @@ struct AO2DTunerImpl {
     return config.mMaxEvents > 0 && accumulator->processedEvents() >= config.mMaxEvents;
   }
 
-  void submitEvent()
+  bool submitEvent()
   {
     if (reachedEventLimit()) {
-      return;
+      return true;
     }
 
     accumulator->processEvent(eventBuffer);
@@ -403,6 +458,9 @@ struct AO2DTunerImpl {
     if (config.mProgressEvery > 0 && n % config.mProgressEvery == 0) {
       std::cout << "Ditto AO2D tuner: " << n << " events processed\n";
     }
+
+    // SIGINT is acted upon only after the current event has been committed.
+    return reachedEventLimit() || stopRequested();
   }
 
   bool addParticle(int pdg,
@@ -538,6 +596,9 @@ struct AO2DTunerImpl {
                 << ": " << config.mInputFiles[i] << "\n";
 
       appendFileToChain(config.mInputFiles[i], i);
+      if (stopRequested()) {
+        break;
+      }
     }
 
     if (!particleChain || chunks.empty()) {
@@ -553,18 +614,25 @@ struct AO2DTunerImpl {
   void processEmptyInput()
   {
     for (const auto& chunk : chunks) {
-      eventBuffer.clear();
-      for (Long64_t collision = 0; collision < chunk.nCollisions && !reachedEventLimit(); ++collision) {
-        submitEvent();
-      }
-      if (reachedEventLimit()) {
+      if (stopRequested() || reachedEventLimit()) {
         return;
+      }
+
+      eventBuffer.clear();
+      for (Long64_t collision = 0; collision < chunk.nCollisions; ++collision) {
+        if (submitEvent()) {
+          return;
+        }
       }
     }
   }
 
   void processChain()
   {
+    if (stopRequested() || reachedEventLimit()) {
+      return;
+    }
+
     if (totalParticleEntries == 0) {
       processEmptyInput();
       return;
@@ -597,7 +665,7 @@ struct AO2DTunerImpl {
     Long64_t consumedParticleEntries = 0;
 
     for (const auto& chunk : chunks) {
-      if (reachedEventLimit()) {
+      if (stopRequested() || reachedEventLimit()) {
         return;
       }
 
@@ -605,10 +673,6 @@ struct AO2DTunerImpl {
       eventBuffer.clear();
 
       for (Long64_t localEntry = 0; localEntry < chunk.nParticleEntries; ++localEntry) {
-        if (reachedEventLimit()) {
-          return;
-        }
-
         if (!reader.Next()) {
           throw std::runtime_error("Ditto::AO2DTuner: TChain ended before the indexed AO2D particle count was reached while reading " +
                                    chunk.fileName + ":" +
@@ -632,13 +696,11 @@ struct AO2DTunerImpl {
         }
 
         while (currentCollision < collision) {
-          submitEvent();
-          if (reachedEventLimit()) {
+          if (submitEvent()) {
             return;
           }
           ++currentCollision;
         }
-
         addParticle(*pdgCode,
                     *statusCode,
                     static_cast<std::uint8_t>(*flags),
@@ -652,13 +714,15 @@ struct AO2DTunerImpl {
       // fIndexMcCollisions is local to each DF. Flush the remaining collisions
       // here and reset before the next chunk rather than treating the TChain as
       // one global collision-index space.
-      while (currentCollision < chunk.nCollisions && !reachedEventLimit()) {
-        submitEvent();
+      while (currentCollision < chunk.nCollisions) {
+        if (submitEvent()) {
+          return;
+        }
         ++currentCollision;
       }
     }
 
-    if (!reachedEventLimit() && consumedParticleEntries != totalParticleEntries) {
+    if (consumedParticleEntries != totalParticleEntries) {
       throw std::runtime_error("Ditto::AO2DTuner: particle-chain accounting mismatch: consumed " +
                                std::to_string(consumedParticleEntries) + " entries, expected " +
                                std::to_string(totalParticleEntries));
@@ -675,18 +739,16 @@ struct AO2DTunerImpl {
     }
 
     ran = true;
+    ScopedSigintHandler sigintHandler;
     const auto start = std::chrono::steady_clock::now();
 
-    //
     // Detect the AO2D schema once, from the first input file.
-    //
     discoverInputSchema();
 
     const std::size_t nFiles = config.mInputFiles.size();
     const std::size_t batchSize = config.mFileBatchSize > 0 ? config.mFileBatchSize : nFiles;
 
-    for (std::size_t first = 0; first < nFiles && !reachedEventLimit(); first += batchSize) {
-
+    for (std::size_t first = 0; first < nFiles && !reachedEventLimit() && !stopRequested(); first += batchSize) {
       const std::size_t last = std::min(first + batchSize, nFiles);
 
       std::cout << "\nDitto AO2D tuner: processing file batch "
@@ -695,25 +757,22 @@ struct AO2DTunerImpl {
 
       buildInputChain(first, last);
 
-      processChain();
+      if (!stopRequested()) {
+        processChain();
+      }
 
-      //
-      // The chain and its file handles are no longer needed.
-      //
+      // Release the current batch before either continuing or finalizing.
       particleChain.reset();
       chunks.clear();
 
-      //
-      // Overall progress / ETA.
-      //
+      if (stopRequested()) {
+        break;
+      }
+
       const std::size_t completedFiles = last;
-
       const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-
       const double secondsPerFile = completedFiles > 0 ? elapsed / static_cast<double>(completedFiles) : 0.0;
-
       const double eta = secondsPerFile * static_cast<double>(nFiles - completedFiles);
-
       const double fraction = static_cast<double>(completedFiles) / static_cast<double>(nFiles);
 
       std::cout << "Ditto AO2D tuner: "
@@ -731,7 +790,8 @@ struct AO2DTunerImpl {
     const auto nEvents = accumulator->processedEvents();
     const double eventRate = elapsed > 0.0 ? static_cast<double>(nEvents) / elapsed : 0.0;
 
-    std::cout << "\nDitto AO2D tuning complete\n"
+    std::cout << (stopRequested() ? "\nDitto AO2D tuning stopped gracefully\n"
+                                  : "\nDitto AO2D tuning complete\n")
               << " events               : " << nEvents << "\n"
               << " particles read       : " << processedParticles << "\n"
               << " particles selected   : " << selectedParticles << "\n"
@@ -746,11 +806,9 @@ struct AO2DTunerImpl {
     if (accumulator->activityOverflowEvents() > 0) {
       std::cout << " WARNING activity overflow events: " << accumulator->activityOverflowEvents() << "\n";
     }
-
     if (accumulator->ptOverflowParticles() > 0) {
       std::cout << " WARNING pT overflow particles: " << accumulator->ptOverflowParticles() << "\n";
     }
-
     if (accumulator->speciesMultiplicityOverflowEvents() > 0) {
       std::cout << " WARNING species-count overflow fills: " << accumulator->speciesMultiplicityOverflowEvents() << "\n";
     }
