@@ -613,9 +613,7 @@ void ValidateDittoTeacher(const char* tuneFile = "Ditto_tune_pythia8_inel_136tev
 
     SpeciesValidation observable;
     observable.pdg = entry->pdg;
-    observable.name = entry->particleName.empty()
-                        ? std::to_string(entry->pdg)
-                        : entry->particleName;
+    observable.name = entry->particleName.empty() ? std::to_string(entry->pdg) : entry->particleName;
 
     observable.yieldTeacher = makeProfile(Form("pYieldVsNch_Teacher_PDG%d", entry->pdg),
                                           Form(";%s;<N_{%s}>", "N_{ch}", observable.name.c_str()),

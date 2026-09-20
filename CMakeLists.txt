@@ -77,7 +77,8 @@ target_link_libraries(Ditto
     CURL::libcurl
 )
 
-add_library(DittoTuner SHARED Tuning/DittoTuner.cxx)
+add_library(DittoTuner SHARED Tuning/DittoPythiaTuner.cxx
+                              Tuning/DittoTuneAccumulator.cxx)
 add_library(Ditto::DittoTuner ALIAS DittoTuner)
 
 target_include_directories(DittoTuner
@@ -109,7 +110,8 @@ install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/"
 install(FILES
   Generation/Ditto.h
   Tuning/DittoTune.h
-  Tuning/DittoTuner.h
+  Tuning/DittoPythiaTuner.h
+  Tuning/DittoTuneAccumulator.h
   Tuning/DittoTuneDownload.h
   DESTINATION include/Ditto
 )

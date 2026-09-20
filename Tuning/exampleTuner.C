@@ -11,7 +11,7 @@
 /// \brief  Example Ditto tuning macro.
 ///
 
-#include "DittoTuner.h"
+#include "DittoPythiaTuner.h"
 
 #include <cstdint>
 #include <iostream>
@@ -31,36 +31,36 @@ void exampleTuner(std::uint64_t nEvents, const std::string pythiaCard,
   cfg.nEvents = nEvents;
 
   // Event activity for the conditional tables.
-  cfg.activityEtaMax = 0.5;
+  cfg.mActivityEtaMax = 0.5;
 
   // Ditto generation acceptance that we want to learn.
-  cfg.particleEtaMax = 5.0;
+  cfg.mParticleEtaMax = 5.0;
 
   // This also becomes part of the persistent generator card.
-  cfg.finalStatus = 1;
+  cfg.mFinalStatus = 1;
 
   // Enough for pp at 13 TeV. Increase these for PbPb.
-  cfg.activityEdges = activityEdges;
+  cfg.mActivityEdges = activityEdges;
 
   // Coarser classes are sufficient for the species-composition fractions.
   // P(Nselected | Nch) itself is stored with exact integer multiplicities.
-  cfg.selectedMultiplicityEdges = selectedMultiplicityEdges;
-  cfg.maxNch = maxNch;
-  cfg.maxSelectedMultiplicity = maxSelectedMultiplicity;
+  cfg.mSelectedMultiplicityEdges = selectedMultiplicityEdges;
+  cfg.mMaxNch = maxNch;
+  cfg.mMaxSelectedMultiplicity = maxSelectedMultiplicity;
   // Also controls the z range of the diagnostic species-multiplicity PMFs.
-  cfg.maxSpeciesMultiplicity = maxSpeciesMultiplicity;
+  cfg.mMaxSpeciesMultiplicity = maxSpeciesMultiplicity;
   cfg.progressEvery = progressEvery;
 
   // Uniform reservoir of full correlated composition vectors for each exact
   // (Nch, Nselected) pair.
-  cfg.maxCompositionTemplatesPerPair = 128;
-  cfg.compositionReservoirSeed = 1;
+  cfg.mMaxCompositionTemplatesPerPair = 128;
+  cfg.mCompositionReservoirSeed = 1;
 
-  cfg.ptMax = 20.0;
-  cfg.nPtBins = 1000;
-  cfg.nEtaBins = 400;
+  cfg.mPtMax = 20.0;
+  cfg.mNPtBins = 1000;
+  cfg.mNEtaBins = 400;
 
-  Ditto::Tuner tuner(cfg);
+  Ditto::PythiaTuner tuner(cfg);
   tuner.run();
 
   std::cout << "Generated " << tuner.generatedEvents() << " successful PYTHIA events\n";

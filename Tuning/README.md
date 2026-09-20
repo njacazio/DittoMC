@@ -97,7 +97,7 @@ so it remains synchronized with the generator.
 
 ```cpp
 .L ../Ditto.cxx+
-.L DittoTuner.cxx+
+.L DittoPythiaTuner.cxx+
 .x exampleTuner.C(1000000)
 ```
 
