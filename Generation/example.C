@@ -31,13 +31,13 @@ void example(const int nEvents,
 
   // The tune is the complete physics generator card: beam IDs, energy,
   // acceptance, species and all learned distributions come from this file.
-  cfg.tuneFile = tuneFile;
+  cfg.mTuneFile = tuneFile;
 
   // Runtime-only Ditto options.
-  cfg.seed = 12345;
-  cfg.enableTimingMetrics = true;
+  cfg.mSeed = 12345;
+  cfg.mEnableTimingMetrics = true;
   // Fine-grained profiling. Disable this for the least intrusive absolute benchmark.
-  cfg.enableDetailedTimingMetrics = false;
+  cfg.mEnableDetailedTimingMetrics = false;
 
   Ditto::Generator generator(cfg);
 
