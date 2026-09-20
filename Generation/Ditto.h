@@ -37,36 +37,36 @@ namespace Ditto
 // generated acceptance, particle species and the learned event/kinematic model.
 struct Config {
   // Ditto tune / generator-card file produced by Ditto::Tuner.
-  std::string tuneFile;
+  std::string mTuneFile;
 
   // Ditto random seed. This is intentionally independent of the PYTHIA
   // random seed stored in the teacher card.
-  std::uint64_t seed = 1;
+  std::uint64_t mSeed = 1;
 
   // Measure total generator timing and print a summary when the Generator is
   // destroyed. Pure generation, TTree filling and PYTHIA export are reported
   // separately.
-  bool enableTimingMetrics = false;
+  bool mEnableTimingMetrics = false;
 
   // Add fine-grained timers inside generation. This is intended for profiling:
   // it performs many steady_clock::now() calls per particle and therefore
   // perturbs the absolute timing. Use enableTimingMetrics=true and this=false
   // for the least intrusive throughput benchmark.
-  bool enableDetailedTimingMetrics = false;
+  bool mEnableDetailedTimingMetrics = false;
 };
 
 struct EventInfo {
-  std::uint64_t eventNumber = 0;
+  std::uint64_t mEventNumber = 0;
 
   // Teacher beam configuration carried by the tune / generator card.
-  int beamIdA = 0;
-  int beamIdB = 0;
-  double sqrtSNN = 0.0;
+  int mBeamIdA = 0;
+  int mBeamIdB = 0;
+  double mSqrtSNN = 0.0;
 
   // Exact event-level conditioning variables sampled from the tune.
-  int conditioningNch = -1;
-  int conditioningNSelected = -1;
-  int activityClass = -1;
+  int mConditioningNch = -1;
+  int mConditioningNSelected = -1;
+  int mActivityClass = -1;
 };
 
 // Accumulated wall-clock timings. Values are stored in seconds.
@@ -74,36 +74,36 @@ struct EventInfo {
 // The detailed particle components are only populated when
 // Config::enableDetailedTimingMetrics is true.
 struct TimingMetrics {
-  std::uint64_t generatedEvents = 0;
-  std::uint64_t generatedParticles = 0;
-  std::uint64_t treeFills = 0;
-  std::uint64_t pythiaExports = 0;
+  std::uint64_t mGeneratedEvents = 0;
+  std::uint64_t mGeneratedParticles = 0;
+  std::uint64_t mTreeFills = 0;
+  std::uint64_t mPythiaExports = 0;
 
   // Coarse timings.
-  double generation = 0.0; // excludes TTree::Fill and PYTHIA export
-  double treeFill = 0.0;
-  double pythiaExport = 0.0;
+  double mGeneration = 0.0; // excludes TTree::Fill and PYTHIA export
+  double mTreeFill = 0.0;
+  double mPythiaExport = 0.0;
 
   // Event-level generation components.
-  double clearParticles = 0.0;
-  double eventInfo = 0.0;
-  double multiplicity = 0.0;
-  double expandArray = 0.0;
-  double particleLoop = 0.0;
+  double mClearParticles = 0.0;
+  double mEventInfo = 0.0;
+  double mMultiplicity = 0.0;
+  double mExpandArray = 0.0;
+  double mParticleLoop = 0.0;
 
   // Particle-generation components.
-  double speciesSampling = 0.0;
-  double constructedAt = 0.0;
-  double ptSampling = 0.0;
-  double etaSampling = 0.0;
-  double phiSampling = 0.0;
-  double momentumMath = 0.0;
-  double particleSetters = 0.0;
+  double mSpeciesSampling = 0.0;
+  double mConstructedAt = 0.0;
+  double mPtSampling = 0.0;
+  double mEtaSampling = 0.0;
+  double mPhiSampling = 0.0;
+  double mMomentumMath = 0.0;
+  double mParticleSetters = 0.0;
 
   // PYTHIA export components.
-  double pythiaReset = 0.0;
-  double pythiaAppend = 0.0;
-  double pythiaSystemSum = 0.0;
+  double mPythiaReset = 0.0;
+  double mPythiaAppend = 0.0;
+  double mPythiaSystemSum = 0.0;
 };
 
 class Tune;
@@ -164,12 +164,12 @@ class Generator
 
   bool timingEnabled() const
   {
-    return mConfig.enableTimingMetrics || mConfig.enableDetailedTimingMetrics;
+    return mConfig.mEnableTimingMetrics || mConfig.mEnableDetailedTimingMetrics;
   }
 
   bool detailedTimingEnabled() const
   {
-    return mConfig.enableDetailedTimingMetrics;
+    return mConfig.mEnableDetailedTimingMetrics;
   }
 
   double uniform01();

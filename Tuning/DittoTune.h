@@ -31,52 +31,52 @@ namespace Ditto
 class TuneSpecies : public TObject
 {
  public:
-  int pdg = 0;
-  std::string particleName;
+  int mPdg = 0;
+  std::string mParticleName;
 
   // Particle properties copied from the initialized PYTHIA teacher so the
   // Ditto generator does not need a runtime particle-data lookup.
-  double mass = 0.0;
-  int chargeType = 0; // PYTHIA convention: three times the electric charge.
+  double mMass = 0.0;
+  int mChargeType = 0; // PYTHIA convention: three times the electric charge.
 
-  TH2D hCountVsActivity;
-  TH2D hPtVsActivity;
-  TH2D hEtaVsActivity;
+  TH2D mHCountVsActivity;
+  TH2D mHPtVsActivity;
+  TH2D mHEtaVsActivity;
 
-  TH2D pCountGivenActivity;
-  TH2D pPtGivenActivity;
-  TH2D pEtaGivenActivity;
+  TH2D mPCountGivenActivity;
+  TH2D mPPtGivenActivity;
+  TH2D mPEtaGivenActivity;
 
   // Exact-Nch, species-dependent pT moments. These retain the multiplicity
   // dependence washed out by the coarser activity classes used by
-  // pPtGivenActivity.
+  // mPPtGivenActivity.
   //
   // "Central charged" and "other" use the same component definition as the
   // empirical composition templates. The pT-sum histograms have Sumw2 enabled:
   // their squared bin errors therefore store sum(pT^2), allowing the finalized
   // mean-pT histograms to carry the statistical error on the mean.
-  TH1D hCentralChargedPtSumVsNch;
-  TH1D hCentralChargedPtCountVsNch;
-  TH1D hOtherPtSumVsNch;
-  TH1D hOtherPtCountVsNch;
+  TH1D mHCentralChargedPtSumVsNch;
+  TH1D mHCentralChargedPtCountVsNch;
+  TH1D mHOtherPtSumVsNch;
+  TH1D mHOtherPtCountVsNch;
 
-  TH1D hCentralChargedMeanPtVsNch;
-  TH1D hOtherMeanPtVsNch;
+  TH1D mHCentralChargedMeanPtVsNch;
+  TH1D mHOtherMeanPtVsNch;
 
   // Particle-count accumulators used to learn a constrained event
   // composition. "Central charged" means a charged selected particle inside
-  // |eta| < activityEtaMax. "Other" contains every other selected particle.
+  // |eta| < mActivityEtaMax. "Other" contains every other selected particle.
   //
   // The axes are:
   //   x = Nch activity class
   //   y = Nselected class
-  TH2D hCentralChargedCountVsActivitySelected;
-  TH2D hOtherCountVsActivitySelected;
+  TH2D mHCentralChargedCountVsActivitySelected;
+  TH2D mHOtherCountVsActivitySelected;
 
   // Species probabilities normalized across all species in each
   // (activity, Nselected) cell. Retained as useful composition diagnostics.
-  TH2D pCentralChargedSpeciesGivenActivitySelected;
-  TH2D pOtherSpeciesGivenActivitySelected;
+  TH2D mPCentralChargedSpeciesGivenActivitySelected;
+  TH2D mPOtherSpeciesGivenActivitySelected;
 
   // Full per-species multiplicity distributions retained as diagnostics.
   // Generation uses the empirical correlated composition templates below.
@@ -86,11 +86,11 @@ class TuneSpecies : public TObject
   // Axes:
   //   0 = Nch activity class
   //   1 = exact species multiplicity
-  THnSparseD hCentralChargedMultiplicityVsActivity;
-  THnSparseD hOtherMultiplicityVsActivity;
+  THnSparseD mHCentralChargedMultiplicityVsActivity;
+  THnSparseD mHOtherMultiplicityVsActivity;
 
-  THnSparseD pCentralChargedMultiplicityGivenActivity;
-  THnSparseD pOtherMultiplicityGivenActivity;
+  THnSparseD mPCentralChargedMultiplicityGivenActivity;
+  THnSparseD mPOtherMultiplicityGivenActivity;
 
   TuneSpecies();
   TuneSpecies(int pdg,
@@ -122,92 +122,92 @@ class Tune : public TObject
   static constexpr const char* kObjectName = "DittoTune";
   static constexpr int kFormatVersion = 8;
 
-  int formatVersion = kFormatVersion;
-  bool finalized = false;
+  int mFormatVersion = kFormatVersion;
+  bool mFinalized = false;
 
-  std::string teacher = "PYTHIA8";
-  std::string pythiaCard;
-  std::string pythiaCardContent;
+  std::string mTeacher = "PYTHIA8";
+  std::string mPythiaCard;
+  std::string mPythiaCardContent;
 
   // Complete beam / generator metadata copied from the initialized teacher.
   // Ditto does not accept an independent collision system or energy: these
   // values are the generator configuration.
-  int beamIdA = 0;
-  int beamIdB = 0;
-  int beamFrameType = 0;
-  double sqrtSNN = 0.0;
+  int mBeamIdA = 0;
+  int mBeamIdB = 0;
+  int mBeamFrameType = 0;
+  double mSqrtSNN = 0.0;
 
   // Current Ditto kinematic model samples the absolute azimuth uniformly.
   // Keeping this explicit in the card prevents an implicit analytic fallback.
-  std::string azimuthModel = "uniform";
+  std::string mAzimuthModel = "uniform";
 
   // Final-state status written to TParticle / exported PYTHIA events.
-  int finalStatus = 1;
+  int mFinalStatus = 1;
 
-  std::uint64_t nEvents = 0;
-  std::uint64_t nAttempts = 0;
-  double generationTimeSeconds = 0.0;
+  std::uint64_t mNEvents = 0;
+  std::uint64_t mNAttempts = 0;
+  double mGenerationTimeSeconds = 0.0;
 
-  std::uint64_t activityOverflowEvents = 0;
-  std::uint64_t selectedMultiplicityOverflowEvents = 0;
-  std::uint64_t ptOverflowParticles = 0;
-  std::uint64_t speciesMultiplicityOverflowEvents = 0;
+  std::uint64_t mActivityOverflowEvents = 0;
+  std::uint64_t mSelectedMultiplicityOverflowEvents = 0;
+  std::uint64_t mPtOverflowParticles = 0;
+  std::uint64_t mSpeciesMultiplicityOverflowEvents = 0;
 
   // Diagnostic for the exact Nch constraint. These count events/particles
   // for which final charged PYTHIA particles in the activity acceptance are
   // not represented by the selected species list.
-  std::uint64_t centralChargedCoverageMismatchEvents = 0;
-  std::uint64_t centralChargedCoverageMissingParticles = 0;
+  std::uint64_t mCentralChargedCoverageMismatchEvents = 0;
+  std::uint64_t mCentralChargedCoverageMissingParticles = 0;
 
-  double activityEtaMax = 0.0;
-  double particleEtaMax = 0.0;
-  double ptMax = 0.0;
+  double mActivityEtaMax = 0.0;
+  double mParticleEtaMax = 0.0;
+  double mPtMax = 0.0;
 
-  std::vector<double> activityEdges;
-  std::vector<double> selectedMultiplicityEdges;
+  std::vector<double> mActivityEdges;
+  std::vector<double> mSelectedMultiplicityEdges;
 
-  TH1D hNch;
-  TH1D hNSelected;
-  TH1D hNchSelected;
+  TH1D mHNch;
+  TH1D mHNSelected;
+  TH1D mHNchSelected;
 
   // Exact event-level correlations. PbPb occupies only a tiny fraction of the
   // full integer (Nch, Nselected) plane, so these are sparse. The raw
   // accumulators are tuner-only; the normalized conditional distributions
   // below are persisted and used by the generator.
-  THnSparseD hNSelectedVsNch; //!
-  THnSparseD hNchSelectedVsNch; //!
+  THnSparseD mHNSelectedVsNch;   //!
+  THnSparseD mHNchSelectedVsNch; //!
 
   // Event occupancy for the coarser composition conditioning.
-  TH2D hEventsVsActivitySelected;
+  TH2D mHEventsVsActivitySelected;
 
-  TH1D pNch;
-  TH1D pNSelected;
-  TH1D pNchSelected;
+  TH1D mPNch;
+  TH1D mPNSelected;
+  TH1D mPNchSelected;
 
-  THnSparseD pNSelectedGivenNch;
-  THnSparseD pNchSelectedGivenNch;
+  THnSparseD mPNSelectedGivenNch;
+  THnSparseD mPNchSelectedGivenNch;
 
   // Empirical correlated species-composition templates.
   //
   // Pairs are stored in lexicographic (Nch, Nselected) order. For pair i,
   // templates are in the half-open range
   //
-  //   [compositionPairOffsets[i], compositionPairOffsets[i + 1])
+  //   [mCompositionPairOffsets[i], mCompositionPairOffsets[i + 1])
   //
   // and each template contains numberOfSpecies() central and other counts in
   // the two flattened arrays below.
-  std::uint64_t compositionTemplateCapPerPair = 0;
+  std::uint64_t mCompositionTemplateCapPerPair = 0;
 
-  std::vector<int> compositionPairNch;
-  std::vector<int> compositionPairNSelected;
-  std::vector<std::uint64_t> compositionPairOffsets;
-  std::vector<std::uint64_t> compositionPairEventsSeen;
+  std::vector<int> mCompositionPairNch;
+  std::vector<int> mCompositionPairNSelected;
+  std::vector<std::uint64_t> mCompositionPairOffsets;
+  std::vector<std::uint64_t> mCompositionPairEventsSeen;
 
-  std::vector<unsigned short> compositionCentralCounts;
-  std::vector<unsigned short> compositionOtherCounts;
+  std::vector<unsigned short> mCompositionCentralCounts;
+  std::vector<unsigned short> mCompositionOtherCounts;
 
   // Owned TuneSpecies objects.
-  TObjArray species;
+  TObjArray mSpecies;
 
   Tune();
   Tune(const Tune& other);

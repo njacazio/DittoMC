@@ -483,14 +483,14 @@ std::uint64_t compositionKey(int nch, int nSelected)
 } // namespace
 
 Generator::Generator(const Config& config) : mConfig(config),
-                                             mRng(config.seed)
+                                             mRng(config.mSeed)
 {
   validateConfig();
-  loadTune(mConfig.tuneFile);
+  loadTune(mConfig.mTuneFile);
 
-  const double meanMultiplicity = mTune->hNSelected.GetMean();
+  const double meanMultiplicity = mTune->mHNSelected.GetMean();
 
-  const double rmsMultiplicity = mTune->hNSelected.GetRMS();
+  const double rmsMultiplicity = mTune->mHNSelected.GetRMS();
 
   const int initialCapacity = std::max(256, static_cast<int>(std::ceil(meanMultiplicity + 6.0 * rmsMultiplicity)));
 
@@ -499,7 +499,7 @@ Generator::Generator(const Config& config) : mConfig(config),
 
 Generator::~Generator()
 {
-  if (timingEnabled() && mTiming.generatedEvents > 0) {
+  if (timingEnabled() && mTiming.mGeneratedEvents > 0) {
     printTimingMetrics(std::cout);
   }
 
@@ -533,12 +533,12 @@ const Tune& Generator::generatorCard() const
 
 double Generator::averageGenerationTimeUs() const
 {
-  if (mTiming.generatedEvents == 0) {
+  if (mTiming.mGeneratedEvents == 0) {
     return 0.0;
   }
 
-  return 1.0e6 * mTiming.generation /
-         static_cast<double>(mTiming.generatedEvents);
+  return 1.0e6 * mTiming.mGeneration /
+         static_cast<double>(mTiming.mGeneratedEvents);
 }
 
 void Generator::resetTimingMetrics()
@@ -548,13 +548,13 @@ void Generator::resetTimingMetrics()
 
 void Generator::printTimingMetrics(std::ostream& os) const
 {
-  if (mTiming.generatedEvents == 0) {
+  if (mTiming.mGeneratedEvents == 0) {
     os << "Ditto timing: no timed events.\n";
     return;
   }
 
-  const double nEvents = static_cast<double>(mTiming.generatedEvents);
-  const double nParticles = static_cast<double>(mTiming.generatedParticles);
+  const double nEvents = static_cast<double>(mTiming.mGeneratedEvents);
+  const double nParticles = static_cast<double>(mTiming.mGeneratedParticles);
 
   const auto usPerEvent = [nEvents](double seconds) {
     return nEvents > 0.0 ? 1.0e6 * seconds / nEvents : 0.0;
@@ -566,30 +566,30 @@ void Generator::printTimingMetrics(std::ostream& os) const
     return total > 0.0 ? 100.0 * part / total : 0.0;
   };
 
-  const double averageUs = usPerEvent(mTiming.generation);
+  const double averageUs = usPerEvent(mTiming.mGeneration);
   const double rateHz = averageUs > 0.0 ? 1.0e6 / averageUs : 0.0;
   const double meanMultiplicity = nEvents > 0.0 ? nParticles / nEvents : 0.0;
-  const double totalGenerationSec = mTiming.generation;
-  const double totalProcessSec = mTiming.generation + mTiming.treeFill + mTiming.pythiaExport;
+  const double totalGenerationSec = mTiming.mGeneration;
+  const double totalProcessSec = mTiming.mGeneration + mTiming.mTreeFill + mTiming.mPythiaExport;
 
   os << std::fixed << std::setprecision(3)
      << "\n========== Ditto performance ==========\n"
-     << "Events                 : " << mTiming.generatedEvents << "\n"
-     << "Particles              : " << mTiming.generatedParticles << "\n"
+     << "Events                 : " << mTiming.mGeneratedEvents << "\n"
+     << "Particles              : " << mTiming.mGeneratedParticles << "\n"
      << "Mean particles/event   : " << meanMultiplicity << "\n"
      << "Total generation time  : " << totalGenerationSec << " s\n";
-  if (mTiming.treeFills > 0 || mTiming.pythiaExports > 0) {
+  if (mTiming.mTreeFills > 0 || mTiming.mPythiaExports > 0) {
     os << "Total process time     : " << totalProcessSec << " s\n";
   }
-  os << "Pure generation        : " << mTiming.generation << " s  (" << percentOf(mTiming.generation, totalProcessSec) << " %)" << "  " << averageUs << " us/event" << "  (" << rateHz << " events/s)\n";
+  os << "Pure generation        : " << mTiming.mGeneration << " s  (" << percentOf(mTiming.mGeneration, totalProcessSec) << " %)" << "  " << averageUs << " us/event" << "  (" << rateHz << " events/s)\n";
 
   if (mTune) {
-    if (mTune->nEvents > 0 && mTune->generationTimeSeconds > 0.0) {
-      const double tuneAverageUs = 1.0e6 * mTune->generationTimeSeconds / static_cast<double>(mTune->nEvents);
+    if (mTune->mNEvents > 0 && mTune->mGenerationTimeSeconds > 0.0) {
+      const double tuneAverageUs = 1.0e6 * mTune->mGenerationTimeSeconds / static_cast<double>(mTune->mNEvents);
       const double speedup = averageUs > 0.0 ? tuneAverageUs / averageUs : 0.0;
 
       os << "Tune teacher generation : "
-         << mTune->generationTimeSeconds
+         << mTune->mGenerationTimeSeconds
          << " s  ("
          << tuneAverageUs
          << " us/event)\n"
@@ -601,14 +601,14 @@ void Generator::printTimingMetrics(std::ostream& os) const
     }
   }
 
-  if (mTiming.treeFills > 0) {
-    const double treeFillUs = 1.0e6 * mTiming.treeFill / static_cast<double>(mTiming.treeFills);
-    os << "TTree::Fill            : " << mTiming.treeFill << " s  (" << percentOf(mTiming.treeFill, totalProcessSec) << " %)" << "  " << treeFillUs << " us/fill  (" << percentOf(mTiming.treeFill, totalProcessSec) << " %)\n";
+  if (mTiming.mTreeFills > 0) {
+    const double treeFillUs = 1.0e6 * mTiming.mTreeFill / static_cast<double>(mTiming.mTreeFills);
+    os << "TTree::Fill            : " << mTiming.mTreeFill << " s  (" << percentOf(mTiming.mTreeFill, totalProcessSec) << " %)" << "  " << treeFillUs << " us/fill  (" << percentOf(mTiming.mTreeFill, totalProcessSec) << " %)\n";
   }
 
-  if (mTiming.pythiaExports > 0) {
-    const double pythiaExportUs = 1.0e6 * mTiming.pythiaExport / static_cast<double>(mTiming.pythiaExports);
-    os << "PYTHIA export          : " << mTiming.pythiaExport << " s  (" << percentOf(mTiming.pythiaExport, totalProcessSec) << " %)" << "  " << pythiaExportUs << " us/export  (" << percentOf(mTiming.pythiaExport, totalProcessSec) << " %)\n";
+  if (mTiming.mPythiaExports > 0) {
+    const double pythiaExportUs = 1.0e6 * mTiming.mPythiaExport / static_cast<double>(mTiming.mPythiaExports);
+    os << "PYTHIA export          : " << mTiming.mPythiaExport << " s  (" << percentOf(mTiming.mPythiaExport, totalProcessSec) << " %)" << "  " << pythiaExportUs << " us/export  (" << percentOf(mTiming.mPythiaExport, totalProcessSec) << " %)\n";
   }
 
   if (!detailedTimingEnabled()) {
@@ -617,69 +617,69 @@ void Generator::printTimingMetrics(std::ostream& os) const
     return;
   }
 
-  const double eventAccounted = mTiming.clearParticles +
-                                mTiming.eventInfo +
-                                mTiming.multiplicity +
-                                mTiming.expandArray +
-                                mTiming.particleLoop;
+  const double eventAccounted = mTiming.mClearParticles +
+                                mTiming.mEventInfo +
+                                mTiming.mMultiplicity +
+                                mTiming.mExpandArray +
+                                mTiming.mParticleLoop;
 
-  const double eventRemainder = std::max(0.0, mTiming.generation - eventAccounted);
+  const double eventRemainder = std::max(0.0, mTiming.mGeneration - eventAccounted);
 
   os << "\n-- generation breakdown --\n";
 
   const auto printEventRow = [&](const char* name, double value) {
     os << std::left << std::setw(24) << name
        << std::right << std::setw(12) << usPerEvent(value) << " us/event"
-       << std::setw(10) << percentOf(value, mTiming.generation) << " %\n";
+       << std::setw(10) << percentOf(value, mTiming.mGeneration) << " %\n";
   };
 
-  printEventRow("TClonesArray::Clear", mTiming.clearParticles);
-  printEventRow("event info", mTiming.eventInfo);
-  printEventRow("multiplicity", mTiming.multiplicity);
-  printEventRow("array expansion", mTiming.expandArray);
-  printEventRow("particle loop", mTiming.particleLoop);
+  printEventRow("TClonesArray::Clear", mTiming.mClearParticles);
+  printEventRow("event info", mTiming.mEventInfo);
+  printEventRow("multiplicity", mTiming.mMultiplicity);
+  printEventRow("array expansion", mTiming.mExpandArray);
+  printEventRow("particle loop", mTiming.mParticleLoop);
   printEventRow("unaccounted/timer", eventRemainder);
 
-  const double particleAccounted = mTiming.speciesSampling +
-                                   mTiming.constructedAt +
-                                   mTiming.ptSampling +
-                                   mTiming.etaSampling +
-                                   mTiming.phiSampling +
-                                   mTiming.momentumMath +
-                                   mTiming.particleSetters;
+  const double particleAccounted = mTiming.mSpeciesSampling +
+                                   mTiming.mConstructedAt +
+                                   mTiming.mPtSampling +
+                                   mTiming.mEtaSampling +
+                                   mTiming.mPhiSampling +
+                                   mTiming.mMomentumMath +
+                                   mTiming.mParticleSetters;
 
-  const double particleRemainder = std::max(0.0, mTiming.particleLoop - particleAccounted);
+  const double particleRemainder = std::max(0.0, mTiming.mParticleLoop - particleAccounted);
 
   os << "\n-- particle-loop breakdown --\n";
 
   const auto printParticleRow = [&](const char* name, double value) {
     os << std::left << std::setw(24) << name
        << std::right << std::setw(12) << nsPerParticle(value) << " ns/particle"
-       << std::setw(10) << percentOf(value, mTiming.particleLoop) << " %\n";
+       << std::setw(10) << percentOf(value, mTiming.mParticleLoop) << " %\n";
   };
 
-  printParticleRow("species sampling", mTiming.speciesSampling);
-  printParticleRow("ConstructedAt", mTiming.constructedAt);
-  printParticleRow("pT sampling", mTiming.ptSampling);
-  printParticleRow("eta sampling", mTiming.etaSampling);
-  printParticleRow("phi sampling", mTiming.phiSampling);
-  printParticleRow("momentum math", mTiming.momentumMath);
-  printParticleRow("TParticle setters", mTiming.particleSetters);
+  printParticleRow("species sampling", mTiming.mSpeciesSampling);
+  printParticleRow("ConstructedAt", mTiming.mConstructedAt);
+  printParticleRow("pT sampling", mTiming.mPtSampling);
+  printParticleRow("eta sampling", mTiming.mEtaSampling);
+  printParticleRow("phi sampling", mTiming.mPhiSampling);
+  printParticleRow("momentum math", mTiming.mMomentumMath);
+  printParticleRow("TParticle setters", mTiming.mParticleSetters);
   printParticleRow("loop/timer overhead", particleRemainder);
 
-  if (mTiming.pythiaExports > 0) {
-    const double nExports = static_cast<double>(mTiming.pythiaExports);
+  if (mTiming.mPythiaExports > 0) {
+    const double nExports = static_cast<double>(mTiming.mPythiaExports);
     const auto usPerExport = [nExports](double seconds) {
       return nExports > 0.0 ? 1.0e6 * seconds / nExports : 0.0;
     };
 
     os << "\n-- PYTHIA export breakdown --\n"
        << std::left << std::setw(24) << "event.reset"
-       << std::right << std::setw(12) << usPerExport(mTiming.pythiaReset) << " us/export\n"
+       << std::right << std::setw(12) << usPerExport(mTiming.mPythiaReset) << " us/export\n"
        << std::left << std::setw(24) << "append particles"
-       << std::right << std::setw(12) << usPerExport(mTiming.pythiaAppend) << " us/export\n"
+       << std::right << std::setw(12) << usPerExport(mTiming.mPythiaAppend) << " us/export\n"
        << std::left << std::setw(24) << "system four-vector"
-       << std::right << std::setw(12) << usPerExport(mTiming.pythiaSystemSum) << " us/export\n";
+       << std::right << std::setw(12) << usPerExport(mTiming.mPythiaSystemSum) << " us/export\n";
   }
 
   os << "\nNOTE: detailed profiling inserts several steady_clock::now() calls per\n"
@@ -690,7 +690,7 @@ void Generator::printTimingMetrics(std::ostream& os) const
 
 void Generator::validateConfig() const
 {
-  if (mConfig.tuneFile.empty()) {
+  if (mConfig.mTuneFile.empty()) {
     throw std::invalid_argument("Ditto: tuneFile is mandatory; the tune is the generator card");
   }
 }
@@ -699,19 +699,19 @@ void Generator::loadTune(const std::string& fileName)
 {
   auto tune = Tune::load(fileName);
 
-  if (tune->formatVersion < 8) {
+  if (tune->mFormatVersion < 8) {
     throw std::runtime_error("Ditto: exact-Nch species-dependent pT correction requires tune formatVersion >= 8");
   }
 
-  if (tune->azimuthModel != "uniform") {
-    throw std::runtime_error("Ditto: unsupported azimuth model '" + tune->azimuthModel + "'");
+  if (tune->mAzimuthModel != "uniform") {
+    throw std::runtime_error("Ditto: unsupported azimuth model '" + tune->mAzimuthModel + "'");
   }
 
   auto runtime = std::make_unique<TuneRuntimeData>();
 
-  runtime->nch = makeDiscreteAliasSampler(makeCDF(tune->pNch,
-                                                  tune->activityEdges.front(),
-                                                  tune->activityEdges.back()));
+  runtime->nch = makeDiscreteAliasSampler(makeCDF(tune->mPNch,
+                                                  tune->mActivityEdges.front(),
+                                                  tune->mActivityEdges.back()));
 
   if (runtime->nch.probability.empty()) {
     throw std::runtime_error("Ditto: tune pNch is empty in the configured activity range");
@@ -723,26 +723,26 @@ void Generator::loadTune(const std::string& fileName)
 
   int maximumNch = 0;
 
-  for (int xBin = 1; xBin <= tune->pNSelectedGivenNch.GetAxis(0)->GetNbins(); ++xBin) {
-    maximumNch = std::max(maximumNch, static_cast<int>(std::llround(tune->pNSelectedGivenNch.GetAxis(0)->GetBinCenter(xBin))));
+  for (int xBin = 1; xBin <= tune->mPNSelectedGivenNch.GetAxis(0)->GetNbins(); ++xBin) {
+    maximumNch = std::max(maximumNch, static_cast<int>(std::llround(tune->mPNSelectedGivenNch.GetAxis(0)->GetBinCenter(xBin))));
   }
 
   runtime->nSelectedGivenNch.resize(static_cast<std::size_t>(maximumNch + 1));
 
   runtime->activityClassByNch.assign(static_cast<std::size_t>(maximumNch + 1), -1);
 
-  for (int xBin = 1; xBin <= tune->pNSelectedGivenNch.GetAxis(0)->GetNbins(); ++xBin) {
-    const int nch = static_cast<int>(std::llround(tune->pNSelectedGivenNch.GetAxis(0)->GetBinCenter(xBin)));
+  for (int xBin = 1; xBin <= tune->mPNSelectedGivenNch.GetAxis(0)->GetNbins(); ++xBin) {
+    const int nch = static_cast<int>(std::llround(tune->mPNSelectedGivenNch.GetAxis(0)->GetBinCenter(xBin)));
 
     if (nch < 0) {
       continue;
     }
 
-    const double minimumSelected = std::max<double>(nch, tune->selectedMultiplicityEdges.front());
+    const double minimumSelected = std::max<double>(nch, tune->mSelectedMultiplicityEdges.front());
 
-    auto sampler = makeDiscreteAliasSampler(makeYSliceCDF(tune->pNSelectedGivenNch, xBin, minimumSelected, tune->selectedMultiplicityEdges.back()));
+    auto sampler = makeDiscreteAliasSampler(makeYSliceCDF(tune->mPNSelectedGivenNch, xBin, minimumSelected, tune->mSelectedMultiplicityEdges.back()));
 
-    if (sampler.probability.empty() && tune->pNch.GetBinContent(tune->pNch.GetXaxis()->FindBin(nch)) > 0.0) {
+    if (sampler.probability.empty() && tune->mPNch.GetBinContent(tune->mPNch.GetXaxis()->FindBin(nch)) > 0.0) {
       throw std::runtime_error("Ditto: empty P(Nselected | Nch=" + std::to_string(nch) +
                                "). Increase selectedMultiplicityEdges and/or "
                                "maxSelectedMultiplicity when tuning.");
@@ -756,7 +756,7 @@ void Generator::loadTune(const std::string& fileName)
   // Per-species kinematics.
   // ----------------------------------------------------------------------
 
-  const int nActivityClasses = static_cast<int>(tune->activityEdges.size()) - 1;
+  const int nActivityClasses = static_cast<int>(tune->mActivityEdges.size()) - 1;
 
   runtime->species.reserve(tune->numberOfSpecies());
 
@@ -768,10 +768,10 @@ void Generator::loadTune(const std::string& fileName)
     }
 
     TuneRuntimeSpeciesData speciesData;
-    speciesData.pdg = entry->pdg;
-    speciesData.charged = entry->chargeType != 0;
-    speciesData.mass = entry->mass;
-    speciesData.mass2 = entry->mass * entry->mass;
+    speciesData.pdg = entry->mPdg;
+    speciesData.charged = entry->mChargeType != 0;
+    speciesData.mass = entry->mMass;
+    speciesData.mass2 = entry->mMass * entry->mMass;
 
     speciesData.ptGivenActivity.reserve(nActivityClasses);
     speciesData.etaGivenActivity.reserve(nActivityClasses);
@@ -782,17 +782,17 @@ void Generator::loadTune(const std::string& fileName)
     meanPtGivenActivity.reserve(nActivityClasses);
 
     for (int i = 1; i <= nActivityClasses; ++i) {
-      const auto ptCDF = makeYSliceCDF(entry->pPtGivenActivity, i);
+      const auto ptCDF = makeYSliceCDF(entry->mPPtGivenActivity, i);
 
       meanPtGivenActivity.push_back(meanOfCDF(ptCDF));
 
       speciesData.ptGivenActivity.push_back(makeAliasSampler(ptCDF));
 
-      speciesData.etaGivenActivity.push_back(makeAliasSampler(makeYSliceCDF(entry->pEtaGivenActivity, i)));
+      speciesData.etaGivenActivity.push_back(makeAliasSampler(makeYSliceCDF(entry->mPEtaGivenActivity, i)));
 
-      speciesData.etaCentralGivenActivity.push_back(makeAliasSampler(makeEtaSliceCDF(entry->pEtaGivenActivity, i, tune->activityEtaMax, true)));
+      speciesData.etaCentralGivenActivity.push_back(makeAliasSampler(makeEtaSliceCDF(entry->mPEtaGivenActivity, i, tune->mActivityEtaMax, true)));
 
-      speciesData.etaOutsideCentralGivenActivity.push_back(makeAliasSampler(makeEtaSliceCDF(entry->pEtaGivenActivity, i, tune->activityEtaMax, false)));
+      speciesData.etaOutsideCentralGivenActivity.push_back(makeAliasSampler(makeEtaSliceCDF(entry->mPEtaGivenActivity, i, tune->mActivityEtaMax, false)));
     }
 
     speciesData.centralPtScaleByNch.assign(
@@ -855,15 +855,15 @@ void Generator::loadTune(const std::string& fileName)
         meanPtGivenActivity[static_cast<std::size_t>(activityClass)];
 
       fillPtScale(
-        entry->hCentralChargedMeanPtVsNch,
-        entry->hCentralChargedPtCountVsNch,
+        entry->mHCentralChargedMeanPtVsNch,
+        entry->mHCentralChargedPtCountVsNch,
         nch,
         baselineMean,
         speciesData.centralPtScaleByNch[static_cast<std::size_t>(nch)]);
 
       fillPtScale(
-        entry->hOtherMeanPtVsNch,
-        entry->hOtherPtCountVsNch,
+        entry->mHOtherMeanPtVsNch,
+        entry->mHOtherPtCountVsNch,
         nch,
         baselineMean,
         speciesData.otherPtScaleByNch[static_cast<std::size_t>(nch)]);
@@ -879,16 +879,16 @@ void Generator::loadTune(const std::string& fileName)
   runtime->compositionRanges.reserve(static_cast<std::size_t>(tune->numberOfCompositionPairs()));
 
   for (int iPair = 0; iPair < tune->numberOfCompositionPairs(); ++iPair) {
-    const std::uint64_t first = tune->compositionPairOffsets[static_cast<std::size_t>(iPair)];
+    const std::uint64_t first = tune->mCompositionPairOffsets[static_cast<std::size_t>(iPair)];
 
-    const std::uint64_t last = tune->compositionPairOffsets[static_cast<std::size_t>(iPair) + 1];
+    const std::uint64_t last = tune->mCompositionPairOffsets[static_cast<std::size_t>(iPair) + 1];
 
     if (last <= first) {
       continue;
     }
 
-    runtime->compositionRanges[compositionKey(tune->compositionPairNch[static_cast<std::size_t>(iPair)],
-                                              tune->compositionPairNSelected[static_cast<std::size_t>(iPair)])] = TuneCompositionTemplateRange{first, last};
+    runtime->compositionRanges[compositionKey(tune->mCompositionPairNch[static_cast<std::size_t>(iPair)],
+                                              tune->mCompositionPairNSelected[static_cast<std::size_t>(iPair)])] = TuneCompositionTemplateRange{first, last};
   }
 
   if (runtime->compositionRanges.empty()) {
@@ -898,17 +898,17 @@ void Generator::loadTune(const std::string& fileName)
   runtime->currentCentralCounts.assign(runtime->species.size(), 0);
   runtime->currentOtherCounts.assign(runtime->species.size(), 0);
 
-  if (tune->centralChargedCoverageMissingParticles > 0) {
+  if (tune->mCentralChargedCoverageMissingParticles > 0) {
     double totalCentralCharged = 0.0;
 
-    for (int i = 1; i <= tune->hNch.GetNbinsX(); ++i) {
-      totalCentralCharged += tune->hNch.GetBinContent(i) * tune->hNch.GetXaxis()->GetBinCenter(i);
+    for (int i = 1; i <= tune->mHNch.GetNbinsX(); ++i) {
+      totalCentralCharged += tune->mHNch.GetBinContent(i) * tune->mHNch.GetXaxis()->GetBinCenter(i);
     }
 
-    const double missingFraction = totalCentralCharged > 0.0 ? static_cast<double>(tune->centralChargedCoverageMissingParticles) / totalCentralCharged : 0.0;
+    const double missingFraction = totalCentralCharged > 0.0 ? static_cast<double>(tune->mCentralChargedCoverageMissingParticles) / totalCentralCharged : 0.0;
 
     std::cerr << "Ditto WARNING: the tune species list misses "
-              << tune->centralChargedCoverageMissingParticles
+              << tune->mCentralChargedCoverageMissingParticles
               << " central charged PYTHIA particles ("
               << 100.0 * missingFraction
               << "% of the central charged sample). "
@@ -939,10 +939,10 @@ double Generator::uniform(double min, double max)
 EventInfo Generator::makeEventInfo() const
 {
   EventInfo info;
-  info.eventNumber = mEventCounter;
-  info.beamIdA = mTune->beamIdA;
-  info.beamIdB = mTune->beamIdB;
-  info.sqrtSNN = mTune->sqrtSNN;
+  info.mEventNumber = mEventCounter;
+  info.mBeamIdA = mTune->mBeamIdA;
+  info.mBeamIdB = mTune->mBeamIdB;
+  info.mSqrtSNN = mTune->mSqrtSNN;
   return info;
 }
 
@@ -971,9 +971,9 @@ int Generator::sampleMultiplicity(EventInfo& info)
     throw std::runtime_error("Ditto: sampled Nselected is smaller than Nch");
   }
 
-  info.conditioningNch = nch;
-  info.conditioningNSelected = nSelected;
-  info.activityClass = activityClass;
+  info.mConditioningNch = nch;
+  info.mConditioningNSelected = nSelected;
+  info.mActivityClass = activityClass;
 
   return nSelected;
 }
@@ -986,13 +986,13 @@ void Generator::sampleComposition(const EventInfo& info,
     throw std::logic_error("Ditto: no tune runtime cache is loaded");
   }
 
-  const std::uint64_t key = compositionKey(info.conditioningNch,
-                                           info.conditioningNSelected);
+  const std::uint64_t key = compositionKey(info.mConditioningNch,
+                                           info.mConditioningNSelected);
 
   const auto found = mTuneRuntime->compositionRanges.find(key);
 
   if (found == mTuneRuntime->compositionRanges.end()) {
-    throw std::runtime_error("Ditto: no empirical composition template for sampled (Nch, Nselected) = (" + std::to_string(info.conditioningNch) + ", " + std::to_string(info.conditioningNSelected) + ")");
+    throw std::runtime_error("Ditto: no empirical composition template for sampled (Nch, Nselected) = (" + std::to_string(info.mConditioningNch) + ", " + std::to_string(info.mConditioningNSelected) + ")");
   }
 
   const auto& range = found->second;
@@ -1009,8 +1009,8 @@ void Generator::sampleComposition(const EventInfo& info,
 
   const std::uint64_t base = templateIndex * static_cast<std::uint64_t>(nSpecies);
 
-  if (base + nSpecies > mTune->compositionCentralCounts.size() ||
-      base + nSpecies > mTune->compositionOtherCounts.size()) {
+  if (base + nSpecies > mTune->mCompositionCentralCounts.size() ||
+      base + nSpecies > mTune->mCompositionOtherCounts.size()) {
     throw std::runtime_error("Ditto: composition-template index is out of range");
   }
 
@@ -1026,19 +1026,19 @@ void Generator::sampleComposition(const EventInfo& info,
   int selectedTotal = 0;
 
   for (std::size_t iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
-    centralCounts[iSpecies] = static_cast<int>(mTune->compositionCentralCounts[static_cast<std::size_t>(base) + iSpecies]);
+    centralCounts[iSpecies] = static_cast<int>(mTune->mCompositionCentralCounts[static_cast<std::size_t>(base) + iSpecies]);
 
-    otherCounts[iSpecies] = static_cast<int>(mTune->compositionOtherCounts[static_cast<std::size_t>(base) + iSpecies]);
+    otherCounts[iSpecies] = static_cast<int>(mTune->mCompositionOtherCounts[static_cast<std::size_t>(base) + iSpecies]);
 
     centralTotal += centralCounts[iSpecies];
     selectedTotal += centralCounts[iSpecies] + otherCounts[iSpecies];
   }
 
-  if (selectedTotal != info.conditioningNSelected) {
+  if (selectedTotal != info.mConditioningNSelected) {
     throw std::runtime_error("Ditto: empirical composition template does not reproduce Nselected");
   }
 
-  if (centralTotal > info.conditioningNch) {
+  if (centralTotal > info.mConditioningNch) {
     throw std::runtime_error("Ditto: empirical composition template contains more modeled central charged particles than Nch");
   }
 
@@ -1047,7 +1047,7 @@ void Generator::sampleComposition(const EventInfo& info,
   // move existing modeled charged particles from the outer component to the
   // central component. This leaves every species total and Nselected exactly
   // unchanged.
-  int missingCentral = info.conditioningNch - centralTotal;
+  int missingCentral = info.mConditioningNch - centralTotal;
 
   while (missingCentral > 0) {
     int movableTotal = 0;
@@ -1055,7 +1055,7 @@ void Generator::sampleComposition(const EventInfo& info,
     for (std::size_t iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       const auto& species = mTuneRuntime->species[iSpecies];
 
-      if (!species.charged || species.etaCentralGivenActivity[info.activityClass].probability.empty()) {
+      if (!species.charged || species.etaCentralGivenActivity[info.mActivityClass].probability.empty()) {
         continue;
       }
 
@@ -1075,7 +1075,7 @@ void Generator::sampleComposition(const EventInfo& info,
     for (std::size_t iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       const auto& species = mTuneRuntime->species[iSpecies];
 
-      if (!species.charged || species.etaCentralGivenActivity[info.activityClass].probability.empty()) {
+      if (!species.charged || species.etaCentralGivenActivity[info.mActivityClass].probability.empty()) {
         continue;
       }
 
@@ -1107,7 +1107,7 @@ void Generator::sampleComposition(const EventInfo& info,
     finalSelected += centralCounts[iSpecies] + otherCounts[iSpecies];
   }
 
-  if (finalCentral != info.conditioningNch || finalSelected != info.conditioningNSelected) {
+  if (finalCentral != info.mConditioningNch || finalSelected != info.mConditioningNSelected) {
     throw std::runtime_error("Ditto: repaired composition does not satisfy exact event multiplicities");
   }
 }
@@ -1191,19 +1191,19 @@ void Generator::makeParticle(TParticle* particle,
 
     pt = sampleAlias(ptSampler) * ptScale;
 
-    mTiming.ptSampling += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mPtSampling += std::chrono::duration<double>(Clock::now() - start).count();
 
     start = Clock::now();
 
     eta = sampleAlias(etaSampler);
 
-    mTiming.etaSampling += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mEtaSampling += std::chrono::duration<double>(Clock::now() - start).count();
 
     start = Clock::now();
 
     phi = samplePhi();
 
-    mTiming.phiSampling += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mPhiSampling += std::chrono::duration<double>(Clock::now() - start).count();
   } else {
     pt = sampleAlias(ptSampler) * ptScale;
     eta = sampleAlias(etaSampler);
@@ -1239,7 +1239,7 @@ void Generator::makeParticle(TParticle* particle,
 
     e = std::sqrt(p2 + mass2);
 
-    mTiming.momentumMath += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mMomentumMath += std::chrono::duration<double>(Clock::now() - start).count();
   } else {
     double sinPhi = 0.0;
     double cosPhi = 0.0;
@@ -1264,7 +1264,7 @@ void Generator::makeParticle(TParticle* particle,
 
   const auto setParticle = [&]() {
     particle->SetPdgCode(pdg);
-    particle->SetStatusCode(mTune->finalStatus);
+    particle->SetStatusCode(mTune->mFinalStatus);
 
     particle->SetMother(0, -1);
     particle->SetMother(1, -1);
@@ -1287,7 +1287,7 @@ void Generator::makeParticle(TParticle* particle,
 
     setParticle();
 
-    mTiming.particleSetters += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mParticleSetters += std::chrono::duration<double>(Clock::now() - start).count();
   } else {
     setParticle();
   }
@@ -1301,22 +1301,20 @@ const EventInfo& Generator::generate()
 
   const bool detailed = detailedTimingEnabled();
 
-  const auto generationStart = timing
-                                 ? Clock::now()
-                                 : Clock::time_point{};
+  const auto generationStart = timing ? Clock::now() : Clock::time_point{};
 
   if (detailed) {
     auto start = Clock::now();
 
     mParticles->Clear("C");
 
-    mTiming.clearParticles += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mClearParticles += std::chrono::duration<double>(Clock::now() - start).count();
 
     start = Clock::now();
 
     mEvent = makeEventInfo();
 
-    mTiming.eventInfo += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mEventInfo += std::chrono::duration<double>(Clock::now() - start).count();
   } else {
     mParticles->Clear("C");
     mEvent = makeEventInfo();
@@ -1329,33 +1327,30 @@ const EventInfo& Generator::generate()
 
     multiplicity = sampleMultiplicity(mEvent);
 
-    mTiming.multiplicity += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mMultiplicity += std::chrono::duration<double>(Clock::now() - start).count();
   } else {
     multiplicity = sampleMultiplicity(mEvent);
   }
 
-  if (multiplicity >
-      mParticles->GetSize()) {
+  if (multiplicity > mParticles->GetSize()) {
     if (detailed) {
       const auto start = Clock::now();
 
       mParticles->Expand(multiplicity);
 
-      mTiming.expandArray += std::chrono::duration<double>(Clock::now() - start).count();
+      mTiming.mExpandArray += std::chrono::duration<double>(Clock::now() - start).count();
     } else {
       mParticles->Expand(multiplicity);
     }
   }
 
-  const auto particleLoopStart = detailed
-                                   ? Clock::now()
-                                   : Clock::time_point{};
+  const auto particleLoopStart = detailed ? Clock::now() : Clock::time_point{};
 
   int particleIndex = 0;
 
-  const int nCentralCharged = mEvent.conditioningNch;
+  const int nCentralCharged = mEvent.mConditioningNch;
 
-  const int nOther = mEvent.conditioningNSelected - mEvent.conditioningNch;
+  const int nOther = mEvent.mConditioningNSelected - mEvent.mConditioningNch;
 
   if (nCentralCharged < 0 ||
       nOther < 0) {
@@ -1369,7 +1364,7 @@ const EventInfo& Generator::generate()
                       mTuneRuntime->currentCentralCounts,
                       mTuneRuntime->currentOtherCounts);
 
-    mTiming.speciesSampling += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mSpeciesSampling += std::chrono::duration<double>(Clock::now() - start).count();
   } else {
     sampleComposition(mEvent,
                       mTuneRuntime->currentCentralCounts,
@@ -1389,9 +1384,9 @@ const EventInfo& Generator::generate()
 
       const auto& species = mTuneRuntime->species[iSpecies];
 
-      const auto& ptSampler = species.ptGivenActivity[mEvent.activityClass];
+      const auto& ptSampler = species.ptGivenActivity[mEvent.mActivityClass];
 
-      const std::size_t nch = static_cast<std::size_t>(mEvent.conditioningNch);
+      const std::size_t nch = static_cast<std::size_t>(mEvent.mConditioningNch);
 
       const auto& ptScaleByNch = centralCharged
                                    ? species.centralPtScaleByNch
@@ -1411,11 +1406,11 @@ const EventInfo& Generator::generate()
           throw std::runtime_error("Ditto: neutral species found in central-charged composition");
         }
 
-        etaSampler = &species.etaCentralGivenActivity[mEvent.activityClass];
+        etaSampler = &species.etaCentralGivenActivity[mEvent.mActivityClass];
       } else if (species.charged) {
-        etaSampler = &species.etaOutsideCentralGivenActivity[mEvent.activityClass];
+        etaSampler = &species.etaOutsideCentralGivenActivity[mEvent.mActivityClass];
       } else {
-        etaSampler = &species.etaGivenActivity[mEvent.activityClass];
+        etaSampler = &species.etaGivenActivity[mEvent.mActivityClass];
       }
 
       if (ptSampler.probability.empty() ||
@@ -1433,8 +1428,8 @@ const EventInfo& Generator::generate()
 
           particle = static_cast<TParticle*>(mParticles->ConstructedAt(particleIndex));
 
-          mTiming.constructedAt += std::chrono::duration<double>(Clock::now() - start)
-                                     .count();
+          mTiming.mConstructedAt += std::chrono::duration<double>(Clock::now() - start)
+                                      .count();
         } else {
           particle = static_cast<TParticle*>(mParticles->ConstructedAt(particleIndex));
         }
@@ -1463,18 +1458,18 @@ const EventInfo& Generator::generate()
   }
 
   if (detailed) {
-    mTiming.particleLoop += std::chrono::duration<double>(Clock::now() - particleLoopStart).count();
+    mTiming.mParticleLoop += std::chrono::duration<double>(Clock::now() - particleLoopStart).count();
   }
 
   // Stop pure-generation timing before ROOT I/O.
   if (timing) {
     const auto generationStop = Clock::now();
 
-    mTiming.generation += std::chrono::duration<double>(generationStop - generationStart).count();
+    mTiming.mGeneration += std::chrono::duration<double>(generationStop - generationStart).count();
 
-    ++mTiming.generatedEvents;
+    ++mTiming.mGeneratedEvents;
 
-    mTiming.generatedParticles += static_cast<std::uint64_t>(multiplicity);
+    mTiming.mGeneratedParticles += static_cast<std::uint64_t>(multiplicity);
   }
 
   if (mTree) {
@@ -1483,9 +1478,9 @@ const EventInfo& Generator::generate()
 
       mTree->Fill();
 
-      mTiming.treeFill += std::chrono::duration<double>(Clock::now() - start).count();
+      mTiming.mTreeFill += std::chrono::duration<double>(Clock::now() - start).count();
 
-      ++mTiming.treeFills;
+      ++mTiming.mTreeFills;
     } else {
       mTree->Fill();
     }
@@ -1507,7 +1502,7 @@ void Generator::loadParticles(Pythia8::Event& event, bool reset) const
     if (detailed) {
       const auto start = Clock::now();
       event.reset();
-      mTiming.pythiaReset += std::chrono::duration<double>(Clock::now() - start).count();
+      mTiming.mPythiaReset += std::chrono::duration<double>(Clock::now() - start).count();
     } else {
       event.reset();
     }
@@ -1554,7 +1549,7 @@ void Generator::loadParticles(Pythia8::Event& event, bool reset) const
   if (detailed) {
     const auto start = Clock::now();
     appendParticles();
-    mTiming.pythiaAppend += std::chrono::duration<double>(Clock::now() - start).count();
+    mTiming.mPythiaAppend += std::chrono::duration<double>(Clock::now() - start).count();
   } else {
     appendParticles();
   }
@@ -1589,15 +1584,15 @@ void Generator::loadParticles(Pythia8::Event& event, bool reset) const
     if (detailed) {
       const auto start = Clock::now();
       updateSystem();
-      mTiming.pythiaSystemSum += std::chrono::duration<double>(Clock::now() - start).count();
+      mTiming.mPythiaSystemSum += std::chrono::duration<double>(Clock::now() - start).count();
     } else {
       updateSystem();
     }
   }
 
   if (timing) {
-    mTiming.pythiaExport += std::chrono::duration<double>(Clock::now() - exportStart).count();
-    ++mTiming.pythiaExports;
+    mTiming.mPythiaExport += std::chrono::duration<double>(Clock::now() - exportStart).count();
+    ++mTiming.mPythiaExports;
   }
 }
 

@@ -236,8 +236,8 @@ void normalizeSpeciesFractions(TObjArray& species,
     return;
 
   auto& reference = centralCharged
-                      ? first->pCentralChargedSpeciesGivenActivitySelected
-                      : first->pOtherSpeciesGivenActivitySelected;
+                      ? first->mPCentralChargedSpeciesGivenActivitySelected
+                      : first->mPOtherSpeciesGivenActivitySelected;
 
   for (int ix = 1; ix <= reference.GetNbinsX(); ++ix) {
     for (int iy = 1; iy <= reference.GetNbinsY(); ++iy) {
@@ -250,8 +250,8 @@ void normalizeSpeciesFractions(TObjArray& species,
           continue;
 
         const auto& histogram = centralCharged
-                                  ? entry->pCentralChargedSpeciesGivenActivitySelected
-                                  : entry->pOtherSpeciesGivenActivitySelected;
+                                  ? entry->mPCentralChargedSpeciesGivenActivitySelected
+                                  : entry->mPOtherSpeciesGivenActivitySelected;
 
         sum += histogram.GetBinContent(ix, iy);
       }
@@ -266,8 +266,8 @@ void normalizeSpeciesFractions(TObjArray& species,
           continue;
 
         auto& histogram = centralCharged
-                            ? entry->pCentralChargedSpeciesGivenActivitySelected
-                            : entry->pOtherSpeciesGivenActivitySelected;
+                            ? entry->mPCentralChargedSpeciesGivenActivitySelected
+                            : entry->mPOtherSpeciesGivenActivitySelected;
 
         histogram.SetBinContent(ix,
                                 iy,
@@ -296,82 +296,82 @@ TuneSpecies::TuneSpecies(int pdgIn,
                          double ptMax,
                          int nEtaBins,
                          double etaMax)
-  : pdg(pdgIn),
-    hCountVsActivity(("hCountVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
-                     ";N_{ch};N_{species}",
-                     nActivityBins,
-                     activityEdges,
-                     maxSpeciesMultiplicity + 1,
-                     -0.5,
-                     maxSpeciesMultiplicity + 0.5),
-    hPtVsActivity(("hPtVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
-                  ";N_{ch};p_{T} (GeV/c)",
-                  nActivityBins,
-                  activityEdges,
-                  nPtBins,
-                  0.0,
-                  ptMax),
-    hEtaVsActivity(("hEtaVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
-                   ";N_{ch};#eta",
+  : mPdg(pdgIn),
+    mHCountVsActivity(("hCountVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
+                      ";N_{ch};N_{species}",
+                      nActivityBins,
+                      activityEdges,
+                      maxSpeciesMultiplicity + 1,
+                      -0.5,
+                      maxSpeciesMultiplicity + 0.5),
+    mHPtVsActivity(("hPtVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
+                   ";N_{ch};p_{T} (GeV/c)",
                    nActivityBins,
                    activityEdges,
-                   nEtaBins,
-                   -etaMax,
-                   etaMax),
-    hCentralChargedPtSumVsNch(("hCentralChargedPtSumVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
-                              ";N_{ch};#Sigma p_{T} (GeV/c)",
-                              maxNch + 1,
-                              -0.5,
-                              maxNch + 0.5),
-    hCentralChargedPtCountVsNch(("hCentralChargedPtCountVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
-                                ";N_{ch};particles",
-                                maxNch + 1,
-                                -0.5,
-                                maxNch + 0.5),
-    hOtherPtSumVsNch(("hOtherPtSumVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
-                     ";N_{ch};#Sigma p_{T} (GeV/c)",
-                     maxNch + 1,
-                     -0.5,
-                     maxNch + 0.5),
-    hOtherPtCountVsNch(("hOtherPtCountVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
-                       ";N_{ch};particles",
-                       maxNch + 1,
-                       -0.5,
-                       maxNch + 0.5),
-    hCentralChargedCountVsActivitySelected(("hCentralChargedCountVsActivitySelected_pdg_" + std::to_string(pdgIn)).c_str(),
-                                           ";N_{ch};N_{selected}",
-                                           nActivityBins,
-                                           activityEdges,
-                                           nSelectedBins,
-                                           selectedMultiplicityEdges),
-    hOtherCountVsActivitySelected(("hOtherCountVsActivitySelected_pdg_" + std::to_string(pdgIn)).c_str(),
-                                  ";N_{ch};N_{selected}",
-                                  nActivityBins,
-                                  activityEdges,
-                                  nSelectedBins,
-                                  selectedMultiplicityEdges),
-    hCentralChargedMultiplicityVsActivity(
+                   nPtBins,
+                   0.0,
+                   ptMax),
+    mHEtaVsActivity(("hEtaVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
+                    ";N_{ch};#eta",
+                    nActivityBins,
+                    activityEdges,
+                    nEtaBins,
+                    -etaMax,
+                    etaMax),
+    mHCentralChargedPtSumVsNch(("hCentralChargedPtSumVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
+                               ";N_{ch};#Sigma p_{T} (GeV/c)",
+                               maxNch + 1,
+                               -0.5,
+                               maxNch + 0.5),
+    mHCentralChargedPtCountVsNch(("hCentralChargedPtCountVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
+                                 ";N_{ch};particles",
+                                 maxNch + 1,
+                                 -0.5,
+                                 maxNch + 0.5),
+    mHOtherPtSumVsNch(("hOtherPtSumVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
+                      ";N_{ch};#Sigma p_{T} (GeV/c)",
+                      maxNch + 1,
+                      -0.5,
+                      maxNch + 0.5),
+    mHOtherPtCountVsNch(("hOtherPtCountVsNch_pdg_" + std::to_string(pdgIn)).c_str(),
+                        ";N_{ch};particles",
+                        maxNch + 1,
+                        -0.5,
+                        maxNch + 0.5),
+    mHCentralChargedCountVsActivitySelected(("hCentralChargedCountVsActivitySelected_pdg_" + std::to_string(pdgIn)).c_str(),
+                                            ";N_{ch};N_{selected}",
+                                            nActivityBins,
+                                            activityEdges,
+                                            nSelectedBins,
+                                            selectedMultiplicityEdges),
+    mHOtherCountVsActivitySelected(("hOtherCountVsActivitySelected_pdg_" + std::to_string(pdgIn)).c_str(),
+                                   ";N_{ch};N_{selected}",
+                                   nActivityBins,
+                                   activityEdges,
+                                   nSelectedBins,
+                                   selectedMultiplicityEdges),
+    mHCentralChargedMultiplicityVsActivity(
       ("hCentralChargedMultiplicityVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
       ";N_{ch};N_{species}^{central}",
       2,
       std::array<int, 2>{nActivityBins, maxSpeciesMultiplicity + 1}.data(),
       std::array<double, 2>{activityEdges[0], -0.5}.data(),
       std::array<double, 2>{activityEdges[nActivityBins], maxSpeciesMultiplicity + 0.5}.data()),
-    hOtherMultiplicityVsActivity(
+    mHOtherMultiplicityVsActivity(
       ("hOtherMultiplicityVsActivity_pdg_" + std::to_string(pdgIn)).c_str(),
       ";N_{ch};N_{species}^{other}",
       2,
       std::array<int, 2>{nActivityBins, maxSpeciesMultiplicity + 1}.data(),
       std::array<double, 2>{activityEdges[0], -0.5}.data(),
       std::array<double, 2>{activityEdges[nActivityBins], maxSpeciesMultiplicity + 0.5}.data()),
-    pCentralChargedMultiplicityGivenActivity(
+    mPCentralChargedMultiplicityGivenActivity(
       ("pCentralChargedMultiplicityGivenActivity_pdg_" + std::to_string(pdgIn)).c_str(),
       ";N_{ch};N_{species}^{central}",
       2,
       std::array<int, 2>{nActivityBins, maxSpeciesMultiplicity + 1}.data(),
       std::array<double, 2>{activityEdges[0], -0.5}.data(),
       std::array<double, 2>{activityEdges[nActivityBins], maxSpeciesMultiplicity + 0.5}.data()),
-    pOtherMultiplicityGivenActivity(
+    mPOtherMultiplicityGivenActivity(
       ("pOtherMultiplicityGivenActivity_pdg_" + std::to_string(pdgIn)).c_str(),
       ";N_{ch};N_{species}^{other}",
       2,
@@ -379,27 +379,27 @@ TuneSpecies::TuneSpecies(int pdgIn,
       std::array<double, 2>{activityEdges[0], -0.5}.data(),
       std::array<double, 2>{activityEdges[nActivityBins], maxSpeciesMultiplicity + 0.5}.data())
 {
-  hCentralChargedMultiplicityVsActivity.SetBinEdges(0, activityEdges);
-  hOtherMultiplicityVsActivity.SetBinEdges(0, activityEdges);
-  pCentralChargedMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
-  pOtherMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
+  mHCentralChargedMultiplicityVsActivity.SetBinEdges(0, activityEdges);
+  mHOtherMultiplicityVsActivity.SetBinEdges(0, activityEdges);
+  mPCentralChargedMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
+  mPOtherMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
 
-  hCountVsActivity.Sumw2();
-  hPtVsActivity.Sumw2();
-  hEtaVsActivity.Sumw2();
+  mHCountVsActivity.Sumw2();
+  mHPtVsActivity.Sumw2();
+  mHEtaVsActivity.Sumw2();
 
   // For the pT-sum histograms Sumw2 stores sum(pT^2), which is used during
   // finalization to compute the statistical uncertainty on <pT>.
-  hCentralChargedPtSumVsNch.Sumw2();
-  hOtherPtSumVsNch.Sumw2();
+  mHCentralChargedPtSumVsNch.Sumw2();
+  mHOtherPtSumVsNch.Sumw2();
 
-  hCentralChargedMultiplicityVsActivity.SetBinEdges(0, activityEdges);
-  hOtherMultiplicityVsActivity.SetBinEdges(0, activityEdges);
-  pCentralChargedMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
-  pOtherMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
+  mHCentralChargedMultiplicityVsActivity.SetBinEdges(0, activityEdges);
+  mHOtherMultiplicityVsActivity.SetBinEdges(0, activityEdges);
+  mPCentralChargedMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
+  mPOtherMultiplicityGivenActivity.SetBinEdges(0, activityEdges);
 
-  hCentralChargedCountVsActivitySelected.Sumw2();
-  hOtherCountVsActivitySelected.Sumw2();
+  mHCentralChargedCountVsActivitySelected.Sumw2();
+  mHOtherCountVsActivitySelected.Sumw2();
 
   // The sparse multiplicity tables are filled with unit event weights and are
   // used only as PMFs, so Sumw2 is intentionally not allocated for them.
@@ -408,67 +408,67 @@ TuneSpecies::TuneSpecies(int pdgIn,
 
 void TuneSpecies::finalize()
 {
-  pCountGivenActivity = hCountVsActivity;
-  pPtGivenActivity = hPtVsActivity;
-  pEtaGivenActivity = hEtaVsActivity;
+  mPCountGivenActivity = mHCountVsActivity;
+  mPPtGivenActivity = mHPtVsActivity;
+  mPEtaGivenActivity = mHEtaVsActivity;
 
   finalizeMeanPt(
-    hCentralChargedPtSumVsNch,
-    hCentralChargedPtCountVsNch,
-    hCentralChargedMeanPtVsNch,
-    "hCentralChargedMeanPtVsNch_pdg_" + std::to_string(pdg));
+    mHCentralChargedPtSumVsNch,
+    mHCentralChargedPtCountVsNch,
+    mHCentralChargedMeanPtVsNch,
+    "hCentralChargedMeanPtVsNch_pdg_" + std::to_string(mPdg));
 
   finalizeMeanPt(
-    hOtherPtSumVsNch,
-    hOtherPtCountVsNch,
-    hOtherMeanPtVsNch,
-    "hOtherMeanPtVsNch_pdg_" + std::to_string(pdg));
+    mHOtherPtSumVsNch,
+    mHOtherPtCountVsNch,
+    mHOtherMeanPtVsNch,
+    "hOtherMeanPtVsNch_pdg_" + std::to_string(mPdg));
 
-  pCentralChargedSpeciesGivenActivitySelected = hCentralChargedCountVsActivitySelected;
-  pOtherSpeciesGivenActivitySelected = hOtherCountVsActivitySelected;
+  mPCentralChargedSpeciesGivenActivitySelected = mHCentralChargedCountVsActivitySelected;
+  mPOtherSpeciesGivenActivitySelected = mHOtherCountVsActivitySelected;
 
-  pCountGivenActivity.SetName(("pCountGivenActivity_pdg_" + std::to_string(pdg)).c_str());
-  pPtGivenActivity.SetName(("pPtGivenActivity_pdg_" + std::to_string(pdg)).c_str());
-  pEtaGivenActivity.SetName(("pEtaGivenActivity_pdg_" + std::to_string(pdg)).c_str());
+  mPCountGivenActivity.SetName(("pCountGivenActivity_pdg_" + std::to_string(mPdg)).c_str());
+  mPPtGivenActivity.SetName(("pPtGivenActivity_pdg_" + std::to_string(mPdg)).c_str());
+  mPEtaGivenActivity.SetName(("pEtaGivenActivity_pdg_" + std::to_string(mPdg)).c_str());
 
-  pCentralChargedSpeciesGivenActivitySelected.SetName(("pCentralChargedSpeciesGivenActivitySelected_pdg_" + std::to_string(pdg)).c_str());
-  pOtherSpeciesGivenActivitySelected.SetName(("pOtherSpeciesGivenActivitySelected_pdg_" + std::to_string(pdg)).c_str());
+  mPCentralChargedSpeciesGivenActivitySelected.SetName(("pCentralChargedSpeciesGivenActivitySelected_pdg_" + std::to_string(mPdg)).c_str());
+  mPOtherSpeciesGivenActivitySelected.SetName(("pOtherSpeciesGivenActivitySelected_pdg_" + std::to_string(mPdg)).c_str());
 
-  normalizeYSlices(pCountGivenActivity);
-  normalizeYSlices(pPtGivenActivity);
-  normalizeYSlices(pEtaGivenActivity);
+  normalizeYSlices(mPCountGivenActivity);
+  normalizeYSlices(mPPtGivenActivity);
+  normalizeYSlices(mPEtaGivenActivity);
 
-  copyNormalizedSparseYSlices(hCentralChargedMultiplicityVsActivity,
-                              pCentralChargedMultiplicityGivenActivity);
-  copyNormalizedSparseYSlices(hOtherMultiplicityVsActivity,
-                              pOtherMultiplicityGivenActivity);
+  copyNormalizedSparseYSlices(mHCentralChargedMultiplicityVsActivity,
+                              mPCentralChargedMultiplicityGivenActivity);
+  copyNormalizedSparseYSlices(mHOtherMultiplicityVsActivity,
+                              mPOtherMultiplicityGivenActivity);
 
   detachFromDirectories();
 }
 
 void TuneSpecies::detachFromDirectories()
 {
-  hCountVsActivity.SetDirectory(nullptr);
-  hPtVsActivity.SetDirectory(nullptr);
-  hEtaVsActivity.SetDirectory(nullptr);
+  mHCountVsActivity.SetDirectory(nullptr);
+  mHPtVsActivity.SetDirectory(nullptr);
+  mHEtaVsActivity.SetDirectory(nullptr);
 
-  hCentralChargedPtSumVsNch.SetDirectory(nullptr);
-  hCentralChargedPtCountVsNch.SetDirectory(nullptr);
-  hOtherPtSumVsNch.SetDirectory(nullptr);
-  hOtherPtCountVsNch.SetDirectory(nullptr);
+  mHCentralChargedPtSumVsNch.SetDirectory(nullptr);
+  mHCentralChargedPtCountVsNch.SetDirectory(nullptr);
+  mHOtherPtSumVsNch.SetDirectory(nullptr);
+  mHOtherPtCountVsNch.SetDirectory(nullptr);
 
-  hCentralChargedMeanPtVsNch.SetDirectory(nullptr);
-  hOtherMeanPtVsNch.SetDirectory(nullptr);
+  mHCentralChargedMeanPtVsNch.SetDirectory(nullptr);
+  mHOtherMeanPtVsNch.SetDirectory(nullptr);
 
-  pCountGivenActivity.SetDirectory(nullptr);
-  pPtGivenActivity.SetDirectory(nullptr);
-  pEtaGivenActivity.SetDirectory(nullptr);
+  mPCountGivenActivity.SetDirectory(nullptr);
+  mPPtGivenActivity.SetDirectory(nullptr);
+  mPEtaGivenActivity.SetDirectory(nullptr);
 
-  hCentralChargedCountVsActivitySelected.SetDirectory(nullptr);
-  hOtherCountVsActivitySelected.SetDirectory(nullptr);
+  mHCentralChargedCountVsActivitySelected.SetDirectory(nullptr);
+  mHOtherCountVsActivitySelected.SetDirectory(nullptr);
 
-  pCentralChargedSpeciesGivenActivitySelected.SetDirectory(nullptr);
-  pOtherSpeciesGivenActivitySelected.SetDirectory(nullptr);
+  mPCentralChargedSpeciesGivenActivitySelected.SetDirectory(nullptr);
+  mPOtherSpeciesGivenActivitySelected.SetDirectory(nullptr);
 }
 
 namespace
@@ -490,59 +490,59 @@ std::vector<double> histogramAxisEdges(const TAxis& axis)
 TuneSpecies* cloneTuneSpecies(const TuneSpecies& source)
 {
   const auto activityEdges =
-    histogramAxisEdges(*source.hCountVsActivity.GetXaxis());
+    histogramAxisEdges(*source.mHCountVsActivity.GetXaxis());
 
   const auto selectedMultiplicityEdges =
-    histogramAxisEdges(*source.hCentralChargedCountVsActivitySelected.GetYaxis());
+    histogramAxisEdges(*source.mHCentralChargedCountVsActivitySelected.GetYaxis());
 
   auto* result = new TuneSpecies(
-    source.pdg,
-    source.hCountVsActivity.GetNbinsX(),
+    source.mPdg,
+    source.mHCountVsActivity.GetNbinsX(),
     activityEdges.data(),
-    source.hCentralChargedCountVsActivitySelected.GetNbinsY(),
+    source.mHCentralChargedCountVsActivitySelected.GetNbinsY(),
     selectedMultiplicityEdges.data(),
-    source.hCountVsActivity.GetNbinsY() - 1,
-    source.hCentralChargedPtCountVsNch.GetNbinsX() - 1,
-    source.hPtVsActivity.GetNbinsY(),
-    source.hPtVsActivity.GetYaxis()->GetXmax(),
-    source.hEtaVsActivity.GetNbinsY(),
-    source.hEtaVsActivity.GetYaxis()->GetXmax());
+    source.mHCountVsActivity.GetNbinsY() - 1,
+    source.mHCentralChargedPtCountVsNch.GetNbinsX() - 1,
+    source.mHPtVsActivity.GetNbinsY(),
+    source.mHPtVsActivity.GetYaxis()->GetXmax(),
+    source.mHEtaVsActivity.GetNbinsY(),
+    source.mHEtaVsActivity.GetYaxis()->GetXmax());
 
-  result->particleName = source.particleName;
-  result->mass = source.mass;
-  result->chargeType = source.chargeType;
+  result->mParticleName = source.mParticleName;
+  result->mMass = source.mMass;
+  result->mChargeType = source.mChargeType;
 
-  result->hCountVsActivity = source.hCountVsActivity;
-  result->hPtVsActivity = source.hPtVsActivity;
-  result->hEtaVsActivity = source.hEtaVsActivity;
+  result->mHCountVsActivity = source.mHCountVsActivity;
+  result->mHPtVsActivity = source.mHPtVsActivity;
+  result->mHEtaVsActivity = source.mHEtaVsActivity;
 
-  result->pCountGivenActivity = source.pCountGivenActivity;
-  result->pPtGivenActivity = source.pPtGivenActivity;
-  result->pEtaGivenActivity = source.pEtaGivenActivity;
+  result->mPCountGivenActivity = source.mPCountGivenActivity;
+  result->mPPtGivenActivity = source.mPPtGivenActivity;
+  result->mPEtaGivenActivity = source.mPEtaGivenActivity;
 
-  result->hCentralChargedPtSumVsNch = source.hCentralChargedPtSumVsNch;
-  result->hCentralChargedPtCountVsNch = source.hCentralChargedPtCountVsNch;
-  result->hOtherPtSumVsNch = source.hOtherPtSumVsNch;
-  result->hOtherPtCountVsNch = source.hOtherPtCountVsNch;
+  result->mHCentralChargedPtSumVsNch = source.mHCentralChargedPtSumVsNch;
+  result->mHCentralChargedPtCountVsNch = source.mHCentralChargedPtCountVsNch;
+  result->mHOtherPtSumVsNch = source.mHOtherPtSumVsNch;
+  result->mHOtherPtCountVsNch = source.mHOtherPtCountVsNch;
 
-  result->hCentralChargedMeanPtVsNch = source.hCentralChargedMeanPtVsNch;
-  result->hOtherMeanPtVsNch = source.hOtherMeanPtVsNch;
+  result->mHCentralChargedMeanPtVsNch = source.mHCentralChargedMeanPtVsNch;
+  result->mHOtherMeanPtVsNch = source.mHOtherMeanPtVsNch;
 
-  result->hCentralChargedCountVsActivitySelected = source.hCentralChargedCountVsActivitySelected;
-  result->hOtherCountVsActivitySelected = source.hOtherCountVsActivitySelected;
+  result->mHCentralChargedCountVsActivitySelected = source.mHCentralChargedCountVsActivitySelected;
+  result->mHOtherCountVsActivitySelected = source.mHOtherCountVsActivitySelected;
 
-  result->pCentralChargedSpeciesGivenActivitySelected = source.pCentralChargedSpeciesGivenActivitySelected;
-  result->pOtherSpeciesGivenActivitySelected = source.pOtherSpeciesGivenActivitySelected;
+  result->mPCentralChargedSpeciesGivenActivitySelected = source.mPCentralChargedSpeciesGivenActivitySelected;
+  result->mPOtherSpeciesGivenActivitySelected = source.mPOtherSpeciesGivenActivitySelected;
 
-  copySparse(source.hCentralChargedMultiplicityVsActivity,
-             result->hCentralChargedMultiplicityVsActivity);
-  copySparse(source.hOtherMultiplicityVsActivity,
-             result->hOtherMultiplicityVsActivity);
+  copySparse(source.mHCentralChargedMultiplicityVsActivity,
+             result->mHCentralChargedMultiplicityVsActivity);
+  copySparse(source.mHOtherMultiplicityVsActivity,
+             result->mHOtherMultiplicityVsActivity);
 
-  copySparse(source.pCentralChargedMultiplicityGivenActivity,
-             result->pCentralChargedMultiplicityGivenActivity);
-  copySparse(source.pOtherMultiplicityGivenActivity,
-             result->pOtherMultiplicityGivenActivity);
+  copySparse(source.mPCentralChargedMultiplicityGivenActivity,
+             result->mPCentralChargedMultiplicityGivenActivity);
+  copySparse(source.mPOtherMultiplicityGivenActivity,
+             result->mPOtherMultiplicityGivenActivity);
 
   result->detachFromDirectories();
 
@@ -553,61 +553,61 @@ TuneSpecies* cloneTuneSpecies(const TuneSpecies& source)
 
 Tune::Tune()
 {
-  species.SetOwner(kTRUE);
+  mSpecies.SetOwner(kTRUE);
   detachFromDirectories();
 }
 
 Tune::Tune(const Tune& other)
   : TObject(other),
-    formatVersion(other.formatVersion),
-    finalized(other.finalized),
-    teacher(other.teacher),
-    pythiaCard(other.pythiaCard),
-    pythiaCardContent(other.pythiaCardContent),
-    beamIdA(other.beamIdA),
-    beamIdB(other.beamIdB),
-    beamFrameType(other.beamFrameType),
-    sqrtSNN(other.sqrtSNN),
-    azimuthModel(other.azimuthModel),
-    finalStatus(other.finalStatus),
-    nEvents(other.nEvents),
-    nAttempts(other.nAttempts),
-    generationTimeSeconds(other.generationTimeSeconds),
-    activityOverflowEvents(other.activityOverflowEvents),
-    selectedMultiplicityOverflowEvents(other.selectedMultiplicityOverflowEvents),
-    ptOverflowParticles(other.ptOverflowParticles),
-    speciesMultiplicityOverflowEvents(other.speciesMultiplicityOverflowEvents),
-    centralChargedCoverageMismatchEvents(other.centralChargedCoverageMismatchEvents),
-    centralChargedCoverageMissingParticles(other.centralChargedCoverageMissingParticles),
-    activityEtaMax(other.activityEtaMax),
-    particleEtaMax(other.particleEtaMax),
-    ptMax(other.ptMax),
-    activityEdges(other.activityEdges),
-    selectedMultiplicityEdges(other.selectedMultiplicityEdges),
-    hNch(other.hNch),
-    hNSelected(other.hNSelected),
-    hNchSelected(other.hNchSelected),
-    hEventsVsActivitySelected(other.hEventsVsActivitySelected),
-    pNch(other.pNch),
-    pNSelected(other.pNSelected),
-    pNchSelected(other.pNchSelected),
-    compositionTemplateCapPerPair(other.compositionTemplateCapPerPair),
-    compositionPairNch(other.compositionPairNch),
-    compositionPairNSelected(other.compositionPairNSelected),
-    compositionPairOffsets(other.compositionPairOffsets),
-    compositionPairEventsSeen(other.compositionPairEventsSeen),
-    compositionCentralCounts(other.compositionCentralCounts),
-    compositionOtherCounts(other.compositionOtherCounts)
+    mFormatVersion(other.mFormatVersion),
+    mFinalized(other.mFinalized),
+    mTeacher(other.mTeacher),
+    mPythiaCard(other.mPythiaCard),
+    mPythiaCardContent(other.mPythiaCardContent),
+    mBeamIdA(other.mBeamIdA),
+    mBeamIdB(other.mBeamIdB),
+    mBeamFrameType(other.mBeamFrameType),
+    mSqrtSNN(other.mSqrtSNN),
+    mAzimuthModel(other.mAzimuthModel),
+    mFinalStatus(other.mFinalStatus),
+    mNEvents(other.mNEvents),
+    mNAttempts(other.mNAttempts),
+    mGenerationTimeSeconds(other.mGenerationTimeSeconds),
+    mActivityOverflowEvents(other.mActivityOverflowEvents),
+    mSelectedMultiplicityOverflowEvents(other.mSelectedMultiplicityOverflowEvents),
+    mPtOverflowParticles(other.mPtOverflowParticles),
+    mSpeciesMultiplicityOverflowEvents(other.mSpeciesMultiplicityOverflowEvents),
+    mCentralChargedCoverageMismatchEvents(other.mCentralChargedCoverageMismatchEvents),
+    mCentralChargedCoverageMissingParticles(other.mCentralChargedCoverageMissingParticles),
+    mActivityEtaMax(other.mActivityEtaMax),
+    mParticleEtaMax(other.mParticleEtaMax),
+    mPtMax(other.mPtMax),
+    mActivityEdges(other.mActivityEdges),
+    mSelectedMultiplicityEdges(other.mSelectedMultiplicityEdges),
+    mHNch(other.mHNch),
+    mHNSelected(other.mHNSelected),
+    mHNchSelected(other.mHNchSelected),
+    mHEventsVsActivitySelected(other.mHEventsVsActivitySelected),
+    mPNch(other.mPNch),
+    mPNSelected(other.mPNSelected),
+    mPNchSelected(other.mPNchSelected),
+    mCompositionTemplateCapPerPair(other.mCompositionTemplateCapPerPair),
+    mCompositionPairNch(other.mCompositionPairNch),
+    mCompositionPairNSelected(other.mCompositionPairNSelected),
+    mCompositionPairOffsets(other.mCompositionPairOffsets),
+    mCompositionPairEventsSeen(other.mCompositionPairEventsSeen),
+    mCompositionCentralCounts(other.mCompositionCentralCounts),
+    mCompositionOtherCounts(other.mCompositionOtherCounts)
 {
-  reconstructSparseLike(other.hNSelectedVsNch, hNSelectedVsNch);
-  reconstructSparseLike(other.hNchSelectedVsNch, hNchSelectedVsNch);
-  reconstructSparseLike(other.pNSelectedGivenNch, pNSelectedGivenNch);
-  reconstructSparseLike(other.pNchSelectedGivenNch, pNchSelectedGivenNch);
+  reconstructSparseLike(other.mHNSelectedVsNch, mHNSelectedVsNch);
+  reconstructSparseLike(other.mHNchSelectedVsNch, mHNchSelectedVsNch);
+  reconstructSparseLike(other.mPNSelectedGivenNch, mPNSelectedGivenNch);
+  reconstructSparseLike(other.mPNchSelectedGivenNch, mPNchSelectedGivenNch);
 
-  species.SetOwner(kTRUE);
+  mSpecies.SetOwner(kTRUE);
 
   for (int i = 0; i < other.numberOfSpecies(); ++i) {
-    species.Add(cloneTuneSpecies(*other.speciesAt(i)));
+    mSpecies.Add(cloneTuneSpecies(*other.speciesAt(i)));
   }
 
   detachFromDirectories();
@@ -621,67 +621,67 @@ Tune& Tune::operator=(const Tune& other)
 
   TObject::operator=(other);
 
-  formatVersion = other.formatVersion;
-  finalized = other.finalized;
+  mFormatVersion = other.mFormatVersion;
+  mFinalized = other.mFinalized;
 
-  teacher = other.teacher;
-  pythiaCard = other.pythiaCard;
-  pythiaCardContent = other.pythiaCardContent;
+  mTeacher = other.mTeacher;
+  mPythiaCard = other.mPythiaCard;
+  mPythiaCardContent = other.mPythiaCardContent;
 
-  beamIdA = other.beamIdA;
-  beamIdB = other.beamIdB;
-  beamFrameType = other.beamFrameType;
-  sqrtSNN = other.sqrtSNN;
-  azimuthModel = other.azimuthModel;
-  finalStatus = other.finalStatus;
+  mBeamIdA = other.mBeamIdA;
+  mBeamIdB = other.mBeamIdB;
+  mBeamFrameType = other.mBeamFrameType;
+  mSqrtSNN = other.mSqrtSNN;
+  mAzimuthModel = other.mAzimuthModel;
+  mFinalStatus = other.mFinalStatus;
 
-  nEvents = other.nEvents;
-  nAttempts = other.nAttempts;
-  generationTimeSeconds = other.generationTimeSeconds;
+  mNEvents = other.mNEvents;
+  mNAttempts = other.mNAttempts;
+  mGenerationTimeSeconds = other.mGenerationTimeSeconds;
 
-  activityOverflowEvents = other.activityOverflowEvents;
-  selectedMultiplicityOverflowEvents = other.selectedMultiplicityOverflowEvents;
-  ptOverflowParticles = other.ptOverflowParticles;
-  speciesMultiplicityOverflowEvents = other.speciesMultiplicityOverflowEvents;
+  mActivityOverflowEvents = other.mActivityOverflowEvents;
+  mSelectedMultiplicityOverflowEvents = other.mSelectedMultiplicityOverflowEvents;
+  mPtOverflowParticles = other.mPtOverflowParticles;
+  mSpeciesMultiplicityOverflowEvents = other.mSpeciesMultiplicityOverflowEvents;
 
-  centralChargedCoverageMismatchEvents = other.centralChargedCoverageMismatchEvents;
-  centralChargedCoverageMissingParticles = other.centralChargedCoverageMissingParticles;
+  mCentralChargedCoverageMismatchEvents = other.mCentralChargedCoverageMismatchEvents;
+  mCentralChargedCoverageMissingParticles = other.mCentralChargedCoverageMissingParticles;
 
-  activityEtaMax = other.activityEtaMax;
-  particleEtaMax = other.particleEtaMax;
-  ptMax = other.ptMax;
+  mActivityEtaMax = other.mActivityEtaMax;
+  mParticleEtaMax = other.mParticleEtaMax;
+  mPtMax = other.mPtMax;
 
-  activityEdges = other.activityEdges;
-  selectedMultiplicityEdges = other.selectedMultiplicityEdges;
+  mActivityEdges = other.mActivityEdges;
+  mSelectedMultiplicityEdges = other.mSelectedMultiplicityEdges;
 
-  hNch = other.hNch;
-  hNSelected = other.hNSelected;
-  hNchSelected = other.hNchSelected;
+  mHNch = other.mHNch;
+  mHNSelected = other.mHNSelected;
+  mHNchSelected = other.mHNchSelected;
 
-  reconstructSparseLike(other.hNSelectedVsNch, hNSelectedVsNch);
-  reconstructSparseLike(other.hNchSelectedVsNch, hNchSelectedVsNch);
-  hEventsVsActivitySelected = other.hEventsVsActivitySelected;
+  reconstructSparseLike(other.mHNSelectedVsNch, mHNSelectedVsNch);
+  reconstructSparseLike(other.mHNchSelectedVsNch, mHNchSelectedVsNch);
+  mHEventsVsActivitySelected = other.mHEventsVsActivitySelected;
 
-  pNch = other.pNch;
-  pNSelected = other.pNSelected;
-  pNchSelected = other.pNchSelected;
+  mPNch = other.mPNch;
+  mPNSelected = other.mPNSelected;
+  mPNchSelected = other.mPNchSelected;
 
-  reconstructSparseLike(other.pNSelectedGivenNch, pNSelectedGivenNch);
-  reconstructSparseLike(other.pNchSelectedGivenNch, pNchSelectedGivenNch);
+  reconstructSparseLike(other.mPNSelectedGivenNch, mPNSelectedGivenNch);
+  reconstructSparseLike(other.mPNchSelectedGivenNch, mPNchSelectedGivenNch);
 
-  compositionTemplateCapPerPair = other.compositionTemplateCapPerPair;
-  compositionPairNch = other.compositionPairNch;
-  compositionPairNSelected = other.compositionPairNSelected;
-  compositionPairOffsets = other.compositionPairOffsets;
-  compositionPairEventsSeen = other.compositionPairEventsSeen;
-  compositionCentralCounts = other.compositionCentralCounts;
-  compositionOtherCounts = other.compositionOtherCounts;
+  mCompositionTemplateCapPerPair = other.mCompositionTemplateCapPerPair;
+  mCompositionPairNch = other.mCompositionPairNch;
+  mCompositionPairNSelected = other.mCompositionPairNSelected;
+  mCompositionPairOffsets = other.mCompositionPairOffsets;
+  mCompositionPairEventsSeen = other.mCompositionPairEventsSeen;
+  mCompositionCentralCounts = other.mCompositionCentralCounts;
+  mCompositionOtherCounts = other.mCompositionOtherCounts;
 
-  species.Delete();
-  species.SetOwner(kTRUE);
+  mSpecies.Delete();
+  mSpecies.SetOwner(kTRUE);
 
   for (int i = 0; i < other.numberOfSpecies(); ++i) {
-    species.Add(cloneTuneSpecies(*other.speciesAt(i)));
+    mSpecies.Add(cloneTuneSpecies(*other.speciesAt(i)));
   }
 
   detachFromDirectories();
@@ -691,7 +691,7 @@ Tune& Tune::operator=(const Tune& other)
 
 Tune::~Tune()
 {
-  species.Delete();
+  mSpecies.Delete();
 }
 
 void Tune::initialize(double activityEtaMaxIn,
@@ -706,33 +706,33 @@ void Tune::initialize(double activityEtaMaxIn,
                       int nEtaBins,
                       const std::vector<int>& speciesPdg)
 {
-  formatVersion = kFormatVersion;
-  finalized = false;
+  mFormatVersion = kFormatVersion;
+  mFinalized = false;
 
-  teacher = "PYTHIA8";
-  pythiaCard.clear();
-  pythiaCardContent.clear();
+  mTeacher = "PYTHIA8";
+  mPythiaCard.clear();
+  mPythiaCardContent.clear();
 
-  beamIdA = 0;
-  beamIdB = 0;
-  beamFrameType = 0;
-  sqrtSNN = 0.0;
-  azimuthModel = "uniform";
-  finalStatus = 1;
+  mBeamIdA = 0;
+  mBeamIdB = 0;
+  mBeamFrameType = 0;
+  mSqrtSNN = 0.0;
+  mAzimuthModel = "uniform";
+  mFinalStatus = 1;
 
-  activityEtaMax = activityEtaMaxIn;
-  particleEtaMax = particleEtaMaxIn;
-  ptMax = ptMaxIn;
-  activityEdges = activityEdgesIn;
-  selectedMultiplicityEdges = selectedMultiplicityEdgesIn;
+  mActivityEtaMax = activityEtaMaxIn;
+  mParticleEtaMax = particleEtaMaxIn;
+  mPtMax = ptMaxIn;
+  mActivityEdges = activityEdgesIn;
+  mSelectedMultiplicityEdges = selectedMultiplicityEdgesIn;
 
-  hNch = TH1D("hNch", ";N_{ch};events", maxNch + 1, -0.5, maxNch + 0.5);
+  mHNch = TH1D("hNch", ";N_{ch};events", maxNch + 1, -0.5, maxNch + 0.5);
 
-  hNSelected = TH1D("hNSelected", ";N_{selected};events", maxSelectedMultiplicity + 1, -0.5, maxSelectedMultiplicity + 0.5);
+  mHNSelected = TH1D("hNSelected", ";N_{selected};events", maxSelectedMultiplicity + 1, -0.5, maxSelectedMultiplicity + 0.5);
 
-  hNchSelected = TH1D("hNchSelected", ";N_{ch}^{selected};events", maxNch + 1, -0.5, maxNch + 0.5);
+  mHNchSelected = TH1D("hNchSelected", ";N_{ch}^{selected};events", maxNch + 1, -0.5, maxNch + 0.5);
 
-  reconstructSparse(hNSelectedVsNch,
+  reconstructSparse(mHNSelectedVsNch,
                     "hNSelectedVsNch",
                     ";N_{ch};N_{selected}",
                     maxNch + 1,
@@ -742,7 +742,7 @@ void Tune::initialize(double activityEtaMaxIn,
                     -0.5,
                     maxSelectedMultiplicity + 0.5);
 
-  reconstructSparse(hNchSelectedVsNch,
+  reconstructSparse(mHNchSelectedVsNch,
                     "hNchSelectedVsNch",
                     ";N_{ch};N_{ch}^{selected}",
                     maxNch + 1,
@@ -752,20 +752,20 @@ void Tune::initialize(double activityEtaMaxIn,
                     -0.5,
                     maxNch + 0.5);
 
-  const int nActivityBins = static_cast<int>(activityEdges.size()) - 1;
-  const int nSelectedBins = static_cast<int>(selectedMultiplicityEdges.size()) - 1;
+  const int nActivityBins = static_cast<int>(mActivityEdges.size()) - 1;
+  const int nSelectedBins = static_cast<int>(mSelectedMultiplicityEdges.size()) - 1;
 
-  hEventsVsActivitySelected = TH2D("hEventsVsActivitySelected", ";N_{ch};N_{selected}", nActivityBins, activityEdges.data(), nSelectedBins, selectedMultiplicityEdges.data());
+  mHEventsVsActivitySelected = TH2D("hEventsVsActivitySelected", ";N_{ch};N_{selected}", nActivityBins, mActivityEdges.data(), nSelectedBins, mSelectedMultiplicityEdges.data());
 
-  hNch.Sumw2();
-  hNSelected.Sumw2();
-  hNchSelected.Sumw2();
+  mHNch.Sumw2();
+  mHNSelected.Sumw2();
+  mHNchSelected.Sumw2();
 
-  pNch = TH1D();
-  pNSelected = TH1D();
-  pNchSelected = TH1D();
+  mPNch = TH1D();
+  mPNSelected = TH1D();
+  mPNchSelected = TH1D();
 
-  reconstructSparse(pNSelectedGivenNch,
+  reconstructSparse(mPNSelectedGivenNch,
                     "pNSelectedGivenNch",
                     ";N_{ch};N_{selected}",
                     maxNch + 1,
@@ -775,7 +775,7 @@ void Tune::initialize(double activityEtaMaxIn,
                     -0.5,
                     maxSelectedMultiplicity + 0.5);
 
-  reconstructSparse(pNchSelectedGivenNch,
+  reconstructSparse(mPNchSelectedGivenNch,
                     "pNchSelectedGivenNch",
                     ";N_{ch};N_{ch}^{selected}",
                     maxNch + 1,
@@ -785,29 +785,29 @@ void Tune::initialize(double activityEtaMaxIn,
                     -0.5,
                     maxNch + 0.5);
 
-  compositionTemplateCapPerPair = 0;
-  compositionPairNch.clear();
-  compositionPairNSelected.clear();
-  compositionPairOffsets.clear();
-  compositionPairEventsSeen.clear();
-  compositionCentralCounts.clear();
-  compositionOtherCounts.clear();
+  mCompositionTemplateCapPerPair = 0;
+  mCompositionPairNch.clear();
+  mCompositionPairNSelected.clear();
+  mCompositionPairOffsets.clear();
+  mCompositionPairEventsSeen.clear();
+  mCompositionCentralCounts.clear();
+  mCompositionOtherCounts.clear();
 
-  species.Delete();
-  species.SetOwner(kTRUE);
+  mSpecies.Delete();
+  mSpecies.SetOwner(kTRUE);
 
   for (const int pdg : speciesPdg) {
-    species.Add(new TuneSpecies(pdg,
-                                nActivityBins,
-                                activityEdges.data(),
-                                nSelectedBins,
-                                selectedMultiplicityEdges.data(),
-                                maxSpeciesMultiplicity,
-                                maxNch,
-                                nPtBins,
-                                ptMax,
-                                nEtaBins,
-                                particleEtaMax));
+    mSpecies.Add(new TuneSpecies(pdg,
+                                 nActivityBins,
+                                 mActivityEdges.data(),
+                                 nSelectedBins,
+                                 mSelectedMultiplicityEdges.data(),
+                                 maxSpeciesMultiplicity,
+                                 maxNch,
+                                 nPtBins,
+                                 mPtMax,
+                                 nEtaBins,
+                                 mParticleEtaMax));
   }
 
   detachFromDirectories();
@@ -815,88 +815,88 @@ void Tune::initialize(double activityEtaMaxIn,
 
 void Tune::finalize()
 {
-  pNch = hNch;
-  pNSelected = hNSelected;
-  pNchSelected = hNchSelected;
+  mPNch = mHNch;
+  mPNSelected = mHNSelected;
+  mPNchSelected = mHNchSelected;
 
-  pNch.SetName("pNch");
-  pNSelected.SetName("pNSelected");
-  pNchSelected.SetName("pNchSelected");
+  mPNch.SetName("pNch");
+  mPNSelected.SetName("pNSelected");
+  mPNchSelected.SetName("pNchSelected");
 
-  normalize1D(pNch);
-  normalize1D(pNSelected);
-  normalize1D(pNchSelected);
+  normalize1D(mPNch);
+  normalize1D(mPNSelected);
+  normalize1D(mPNchSelected);
 
-  copyNormalizedSparseYSlices(hNSelectedVsNch, pNSelectedGivenNch);
-  copyNormalizedSparseYSlices(hNchSelectedVsNch, pNchSelectedGivenNch);
+  copyNormalizedSparseYSlices(mHNSelectedVsNch, mPNSelectedGivenNch);
+  copyNormalizedSparseYSlices(mHNchSelectedVsNch, mPNchSelectedGivenNch);
 
   for (int i = 0; i < numberOfSpecies(); ++i) {
     speciesAt(i)->finalize();
   }
 
-  normalizeSpeciesFractions(species, true);
-  normalizeSpeciesFractions(species, false);
+  normalizeSpeciesFractions(mSpecies, true);
+  normalizeSpeciesFractions(mSpecies, false);
 
-  finalized = true;
+  mFinalized = true;
 
   detachFromDirectories();
 }
 
 void Tune::validate(bool requireFinalized) const
 {
-  if (formatVersion != kFormatVersion) {
+  if (mFormatVersion != kFormatVersion) {
     throw std::runtime_error("Ditto::Tune: unsupported tune format version");
   }
 
-  if (teacher.empty() ||
-      pythiaCardContent.empty()) {
+  if (mTeacher.empty() ||
+      mPythiaCardContent.empty()) {
     throw std::runtime_error("Ditto::Tune: missing teacher generator-card metadata");
   }
 
-  if (beamIdA == 0 || beamIdB == 0) {
+  if (mBeamIdA == 0 || mBeamIdB == 0) {
     throw std::runtime_error("Ditto::Tune: invalid beam IDs");
   }
 
-  if (beamFrameType != 1) {
+  if (mBeamFrameType != 1) {
     throw std::runtime_error("Ditto::Tune: only Beams:frameType = 1 is supported");
   }
 
-  if (!std::isfinite(sqrtSNN) || sqrtSNN <= 0.0) {
+  if (!std::isfinite(mSqrtSNN) || mSqrtSNN <= 0.0) {
     throw std::runtime_error("Ditto::Tune: invalid sqrtSNN");
   }
 
-  if (azimuthModel != "uniform") {
+  if (mAzimuthModel != "uniform") {
     throw std::runtime_error("Ditto::Tune: unsupported azimuth model");
   }
 
-  if (finalStatus <= 0) {
+  if (mFinalStatus <= 0) {
     throw std::runtime_error("Ditto::Tune: finalStatus must be positive");
   }
 
-  if (activityEtaMax <= 0.0) {
+  if (mActivityEtaMax <= 0.0) {
     throw std::runtime_error("Ditto::Tune: invalid activityEtaMax");
   }
 
-  if (particleEtaMax <= 0.0) {
+  if (mParticleEtaMax <= 0.0) {
     throw std::runtime_error("Ditto::Tune: invalid particleEtaMax");
   }
 
-  if (activityEdges.size() < 2) {
+  if (mActivityEdges.size() < 2) {
     throw std::runtime_error("Ditto::Tune: invalid activity edges");
   }
 
-  if (selectedMultiplicityEdges.size() < 2) {
+  if (mSelectedMultiplicityEdges.size() < 2) {
     throw std::runtime_error("Ditto::Tune: invalid selected-multiplicity edges");
   }
 
-  for (std::size_t i = 1; i < activityEdges.size(); ++i) {
-    if (activityEdges[i] <= activityEdges[i - 1]) {
+  for (std::size_t i = 1; i < mActivityEdges.size(); ++i) {
+    if (mActivityEdges[i] <= mActivityEdges[i - 1]) {
       throw std::runtime_error("Ditto::Tune: activity edges are not strictly increasing");
     }
   }
 
-  for (std::size_t i = 1; i < selectedMultiplicityEdges.size(); ++i) {
-    if (selectedMultiplicityEdges[i] <= selectedMultiplicityEdges[i - 1]) {
+  for (std::size_t i = 1; i < mSelectedMultiplicityEdges.size(); ++i) {
+    if (mSelectedMultiplicityEdges[i] <= mSelectedMultiplicityEdges[i - 1]) {
       throw std::runtime_error("Ditto::Tune: selected-multiplicity edges are not strictly increasing");
     }
   }
@@ -905,66 +905,66 @@ void Tune::validate(bool requireFinalized) const
     throw std::runtime_error("Ditto::Tune: no species stored");
   }
 
-  if (requireFinalized && !finalized) {
+  if (requireFinalized && !mFinalized) {
     throw std::runtime_error("Ditto::Tune: tune has not been finalized");
   }
 
-  const int nActivityBins = static_cast<int>(activityEdges.size()) - 1;
-  const int nSelectedBins = static_cast<int>(selectedMultiplicityEdges.size()) - 1;
+  const int nActivityBins = static_cast<int>(mActivityEdges.size()) - 1;
+  const int nSelectedBins = static_cast<int>(mSelectedMultiplicityEdges.size()) - 1;
 
-  if (hEventsVsActivitySelected.GetNbinsX() != nActivityBins ||
-      hEventsVsActivitySelected.GetNbinsY() != nSelectedBins) {
+  if (mHEventsVsActivitySelected.GetNbinsX() != nActivityBins ||
+      mHEventsVsActivitySelected.GetNbinsY() != nSelectedBins) {
     throw std::runtime_error("Ditto::Tune: inconsistent event-composition binning");
   }
 
   if (requireFinalized) {
-    if (pNSelectedGivenNch.GetNdimensions() != 2 ||
-        pNchSelectedGivenNch.GetNdimensions() != 2 ||
-        pNSelectedGivenNch.GetAxis(0)->GetNbins() != hNch.GetNbinsX() ||
-        pNSelectedGivenNch.GetAxis(1)->GetNbins() != hNSelected.GetNbinsX() ||
-        pNchSelectedGivenNch.GetAxis(0)->GetNbins() != hNch.GetNbinsX() ||
-        pNchSelectedGivenNch.GetAxis(1)->GetNbins() != hNchSelected.GetNbinsX()) {
+    if (mPNSelectedGivenNch.GetNdimensions() != 2 ||
+        mPNchSelectedGivenNch.GetNdimensions() != 2 ||
+        mPNSelectedGivenNch.GetAxis(0)->GetNbins() != mHNch.GetNbinsX() ||
+        mPNSelectedGivenNch.GetAxis(1)->GetNbins() != mHNSelected.GetNbinsX() ||
+        mPNchSelectedGivenNch.GetAxis(0)->GetNbins() != mHNch.GetNbinsX() ||
+        mPNchSelectedGivenNch.GetAxis(1)->GetNbins() != mHNchSelected.GetNbinsX()) {
       throw std::runtime_error("Ditto::Tune: inconsistent sparse exact-multiplicity binning");
     }
 
-    if (compositionPairNch.size() != compositionPairNSelected.size() ||
-        compositionPairNch.size() != compositionPairEventsSeen.size()) {
+    if (mCompositionPairNch.size() != mCompositionPairNSelected.size() ||
+        mCompositionPairNch.size() != mCompositionPairEventsSeen.size()) {
       throw std::runtime_error("Ditto::Tune: inconsistent composition-pair metadata");
     }
 
-    if (compositionPairOffsets.size() != compositionPairNch.size() + 1 ||
-        compositionPairOffsets.empty() ||
-        compositionPairOffsets.front() != 0) {
+    if (mCompositionPairOffsets.size() != mCompositionPairNch.size() + 1 ||
+        mCompositionPairOffsets.empty() ||
+        mCompositionPairOffsets.front() != 0) {
       throw std::runtime_error("Ditto::Tune: invalid composition-template offsets");
     }
 
-    for (std::size_t i = 1; i < compositionPairOffsets.size(); ++i) {
-      if (compositionPairOffsets[i] < compositionPairOffsets[i - 1]) {
+    for (std::size_t i = 1; i < mCompositionPairOffsets.size(); ++i) {
+      if (mCompositionPairOffsets[i] < mCompositionPairOffsets[i - 1]) {
         throw std::runtime_error("Ditto::Tune: composition-template offsets are not monotonic");
       }
     }
 
-    for (std::size_t i = 1; i < compositionPairNch.size(); ++i) {
-      if (compositionPairNch[i] < compositionPairNch[i - 1] ||
-          (compositionPairNch[i] == compositionPairNch[i - 1] &&
-           compositionPairNSelected[i] <= compositionPairNSelected[i - 1])) {
+    for (std::size_t i = 1; i < mCompositionPairNch.size(); ++i) {
+      if (mCompositionPairNch[i] < mCompositionPairNch[i - 1] ||
+          (mCompositionPairNch[i] == mCompositionPairNch[i - 1] &&
+           mCompositionPairNSelected[i] <= mCompositionPairNSelected[i - 1])) {
         throw std::runtime_error("Ditto::Tune: composition pairs are not strictly ordered");
       }
     }
 
-    if (compositionTemplateCapPerPair == 0) {
+    if (mCompositionTemplateCapPerPair == 0) {
       throw std::runtime_error("Ditto::Tune: invalid composition-template cap");
     }
 
     const std::uint64_t nTemplates =
-      compositionPairOffsets.back();
+      mCompositionPairOffsets.back();
 
     const std::uint64_t expectedCounts =
       nTemplates *
       static_cast<std::uint64_t>(numberOfSpecies());
 
-    if (compositionCentralCounts.size() != expectedCounts ||
-        compositionOtherCounts.size() != expectedCounts) {
+    if (mCompositionCentralCounts.size() != expectedCounts ||
+        mCompositionOtherCounts.size() != expectedCounts) {
       throw std::runtime_error("Ditto::Tune: inconsistent flattened composition-template size");
     }
 
@@ -972,20 +972,20 @@ void Tune::validate(bool requireFinalized) const
       static_cast<std::size_t>(numberOfSpecies());
 
     for (std::size_t iPair = 0;
-         iPair < compositionPairNch.size();
+         iPair < mCompositionPairNch.size();
          ++iPair) {
       const std::uint64_t first =
-        compositionPairOffsets[iPair];
+        mCompositionPairOffsets[iPair];
 
       const std::uint64_t last =
-        compositionPairOffsets[iPair + 1];
+        mCompositionPairOffsets[iPair + 1];
 
       const std::uint64_t stored =
         last - first;
 
       if (stored == 0 ||
-          stored > compositionTemplateCapPerPair ||
-          stored > compositionPairEventsSeen[iPair]) {
+          stored > mCompositionTemplateCapPerPair ||
+          stored > mCompositionPairEventsSeen[iPair]) {
         throw std::runtime_error("Ditto::Tune: invalid composition-template reservoir metadata");
       }
 
@@ -1004,18 +1004,18 @@ void Tune::validate(bool requireFinalized) const
              ++iSpecies) {
           const int central =
             static_cast<int>(
-              compositionCentralCounts[static_cast<std::size_t>(base) + iSpecies]);
+              mCompositionCentralCounts[static_cast<std::size_t>(base) + iSpecies]);
 
           const int other =
             static_cast<int>(
-              compositionOtherCounts[static_cast<std::size_t>(base) + iSpecies]);
+              mCompositionOtherCounts[static_cast<std::size_t>(base) + iSpecies]);
 
           centralTotal += central;
           selectedTotal += central + other;
         }
 
-        if (centralTotal > compositionPairNch[iPair] ||
-            selectedTotal != compositionPairNSelected[iPair]) {
+        if (centralTotal > mCompositionPairNch[iPair] ||
+            selectedTotal != mCompositionPairNSelected[iPair]) {
           throw std::runtime_error("Ditto::Tune: inconsistent empirical composition template");
         }
       }
@@ -1029,66 +1029,66 @@ void Tune::validate(bool requireFinalized) const
       throw std::runtime_error("Ditto::Tune: invalid species entry");
     }
 
-    if (!std::isfinite(entry->mass) ||
-        entry->mass < 0.0) {
+    if (!std::isfinite(entry->mMass) ||
+        entry->mMass < 0.0) {
       throw std::runtime_error("Ditto::Tune: invalid stored species mass");
     }
 
-    if (entry->hCountVsActivity.GetNbinsX() != nActivityBins ||
-        entry->hPtVsActivity.GetNbinsX() != nActivityBins ||
-        entry->hEtaVsActivity.GetNbinsX() != nActivityBins) {
+    if (entry->mHCountVsActivity.GetNbinsX() != nActivityBins ||
+        entry->mHPtVsActivity.GetNbinsX() != nActivityBins ||
+        entry->mHEtaVsActivity.GetNbinsX() != nActivityBins) {
       throw std::runtime_error("Ditto::Tune: inconsistent activity binning");
     }
 
     const int nExactNchBins =
-      hNch.GetNbinsX();
+      mHNch.GetNbinsX();
 
-    if (entry->hCentralChargedPtSumVsNch.GetNbinsX() != nExactNchBins ||
-        entry->hCentralChargedPtCountVsNch.GetNbinsX() != nExactNchBins ||
-        entry->hOtherPtSumVsNch.GetNbinsX() != nExactNchBins ||
-        entry->hOtherPtCountVsNch.GetNbinsX() != nExactNchBins) {
+    if (entry->mHCentralChargedPtSumVsNch.GetNbinsX() != nExactNchBins ||
+        entry->mHCentralChargedPtCountVsNch.GetNbinsX() != nExactNchBins ||
+        entry->mHOtherPtSumVsNch.GetNbinsX() != nExactNchBins ||
+        entry->mHOtherPtCountVsNch.GetNbinsX() != nExactNchBins) {
       throw std::runtime_error("Ditto::Tune: inconsistent exact-Nch pT-moment binning");
     }
 
     if (requireFinalized &&
-        (entry->hCentralChargedMeanPtVsNch.GetNbinsX() != nExactNchBins ||
-         entry->hOtherMeanPtVsNch.GetNbinsX() != nExactNchBins)) {
+        (entry->mHCentralChargedMeanPtVsNch.GetNbinsX() != nExactNchBins ||
+         entry->mHOtherMeanPtVsNch.GetNbinsX() != nExactNchBins)) {
       throw std::runtime_error("Ditto::Tune: incomplete exact-Nch mean-pT tables");
     }
 
-    if (entry->hCentralChargedCountVsActivitySelected.GetNbinsX() != nActivityBins ||
-        entry->hCentralChargedCountVsActivitySelected.GetNbinsY() != nSelectedBins ||
-        entry->hOtherCountVsActivitySelected.GetNbinsX() != nActivityBins ||
-        entry->hOtherCountVsActivitySelected.GetNbinsY() != nSelectedBins) {
+    if (entry->mHCentralChargedCountVsActivitySelected.GetNbinsX() != nActivityBins ||
+        entry->mHCentralChargedCountVsActivitySelected.GetNbinsY() != nSelectedBins ||
+        entry->mHOtherCountVsActivitySelected.GetNbinsX() != nActivityBins ||
+        entry->mHOtherCountVsActivitySelected.GetNbinsY() != nSelectedBins) {
       throw std::runtime_error("Ditto::Tune: inconsistent constrained-composition binning");
     }
 
     const int nSpeciesMultiplicityBins =
-      entry->hCountVsActivity.GetNbinsY();
+      entry->mHCountVsActivity.GetNbinsY();
 
-    if (entry->hCentralChargedMultiplicityVsActivity.GetNdimensions() != 2 ||
-        entry->hOtherMultiplicityVsActivity.GetNdimensions() != 2 ||
-        entry->hCentralChargedMultiplicityVsActivity.GetAxis(0)->GetNbins() != nActivityBins ||
-        entry->hOtherMultiplicityVsActivity.GetAxis(0)->GetNbins() != nActivityBins ||
-        entry->hCentralChargedMultiplicityVsActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins ||
-        entry->hOtherMultiplicityVsActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins) {
+    if (entry->mHCentralChargedMultiplicityVsActivity.GetNdimensions() != 2 ||
+        entry->mHOtherMultiplicityVsActivity.GetNdimensions() != 2 ||
+        entry->mHCentralChargedMultiplicityVsActivity.GetAxis(0)->GetNbins() != nActivityBins ||
+        entry->mHOtherMultiplicityVsActivity.GetAxis(0)->GetNbins() != nActivityBins ||
+        entry->mHCentralChargedMultiplicityVsActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins ||
+        entry->mHOtherMultiplicityVsActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins) {
       throw std::runtime_error("Ditto::Tune: inconsistent sparse multiplicity-diagnostic binning");
     }
 
     if (requireFinalized &&
-        (entry->pCountGivenActivity.GetNbinsX() != nActivityBins ||
-         entry->pPtGivenActivity.GetNbinsX() != nActivityBins ||
-         entry->pEtaGivenActivity.GetNbinsX() != nActivityBins ||
-         entry->pCentralChargedSpeciesGivenActivitySelected.GetNbinsX() != nActivityBins ||
-         entry->pCentralChargedSpeciesGivenActivitySelected.GetNbinsY() != nSelectedBins ||
-         entry->pOtherSpeciesGivenActivitySelected.GetNbinsX() != nActivityBins ||
-         entry->pOtherSpeciesGivenActivitySelected.GetNbinsY() != nSelectedBins ||
-         entry->pCentralChargedMultiplicityGivenActivity.GetNdimensions() != 2 ||
-         entry->pOtherMultiplicityGivenActivity.GetNdimensions() != 2 ||
-         entry->pCentralChargedMultiplicityGivenActivity.GetAxis(0)->GetNbins() != nActivityBins ||
-         entry->pOtherMultiplicityGivenActivity.GetAxis(0)->GetNbins() != nActivityBins ||
-         entry->pCentralChargedMultiplicityGivenActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins ||
-         entry->pOtherMultiplicityGivenActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins)) {
+        (entry->mPCountGivenActivity.GetNbinsX() != nActivityBins ||
+         entry->mPPtGivenActivity.GetNbinsX() != nActivityBins ||
+         entry->mPEtaGivenActivity.GetNbinsX() != nActivityBins ||
+         entry->mPCentralChargedSpeciesGivenActivitySelected.GetNbinsX() != nActivityBins ||
+         entry->mPCentralChargedSpeciesGivenActivitySelected.GetNbinsY() != nSelectedBins ||
+         entry->mPOtherSpeciesGivenActivitySelected.GetNbinsX() != nActivityBins ||
+         entry->mPOtherSpeciesGivenActivitySelected.GetNbinsY() != nSelectedBins ||
+         entry->mPCentralChargedMultiplicityGivenActivity.GetNdimensions() != 2 ||
+         entry->mPOtherMultiplicityGivenActivity.GetNdimensions() != 2 ||
+         entry->mPCentralChargedMultiplicityGivenActivity.GetAxis(0)->GetNbins() != nActivityBins ||
+         entry->mPOtherMultiplicityGivenActivity.GetAxis(0)->GetNbins() != nActivityBins ||
+         entry->mPCentralChargedMultiplicityGivenActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins ||
+         entry->mPOtherMultiplicityGivenActivity.GetAxis(1)->GetNbins() != nSpeciesMultiplicityBins)) {
       throw std::runtime_error("Ditto::Tune: incomplete probability tables");
     }
   }
@@ -1096,68 +1096,68 @@ void Tune::validate(bool requireFinalized) const
 
 int Tune::activityClass(double nch) const
 {
-  if (activityEdges.size() < 2 ||
-      nch < activityEdges.front() ||
-      nch >= activityEdges.back()) {
+  if (mActivityEdges.size() < 2 ||
+      nch < mActivityEdges.front() ||
+      nch >= mActivityEdges.back()) {
     return -1;
   }
 
-  const auto upper = std::upper_bound(activityEdges.begin(), activityEdges.end(), nch);
+  const auto upper = std::upper_bound(mActivityEdges.begin(), mActivityEdges.end(), nch);
 
-  return static_cast<int>(std::distance(activityEdges.begin(), upper) - 1);
+  return static_cast<int>(std::distance(mActivityEdges.begin(), upper) - 1);
 }
 
 int Tune::selectedMultiplicityClass(double nSelected) const
 {
-  if (selectedMultiplicityEdges.size() < 2 ||
-      nSelected < selectedMultiplicityEdges.front() ||
-      nSelected >= selectedMultiplicityEdges.back()) {
+  if (mSelectedMultiplicityEdges.size() < 2 ||
+      nSelected < mSelectedMultiplicityEdges.front() ||
+      nSelected >= mSelectedMultiplicityEdges.back()) {
     return -1;
   }
 
-  const auto upper = std::upper_bound(selectedMultiplicityEdges.begin(),
-                                      selectedMultiplicityEdges.end(),
+  const auto upper = std::upper_bound(mSelectedMultiplicityEdges.begin(),
+                                      mSelectedMultiplicityEdges.end(),
                                       nSelected);
 
-  return static_cast<int>(std::distance(selectedMultiplicityEdges.begin(), upper) - 1);
+  return static_cast<int>(std::distance(mSelectedMultiplicityEdges.begin(), upper) - 1);
 }
 
 int Tune::numberOfSpecies() const
 {
-  return species.GetEntriesFast();
+  return mSpecies.GetEntriesFast();
 }
 
 int Tune::numberOfCompositionPairs() const
 {
-  return static_cast<int>(compositionPairNch.size());
+  return static_cast<int>(mCompositionPairNch.size());
 }
 
 std::uint64_t Tune::numberOfCompositionTemplates() const
 {
-  return compositionPairOffsets.empty()
+  return mCompositionPairOffsets.empty()
            ? 0
-           : compositionPairOffsets.back();
+           : mCompositionPairOffsets.back();
 }
 
 int Tune::compositionPairIndex(int nch, int nSelected) const
 {
   const auto lower =
     std::lower_bound(
-      compositionPairNch.begin(),
-      compositionPairNch.end(),
+      mCompositionPairNch.begin(),
+      mCompositionPairNch.end(),
       nch);
 
   std::size_t index =
     static_cast<std::size_t>(
-      std::distance(compositionPairNch.begin(), lower));
+      std::distance(mCompositionPairNch.begin(), lower));
 
-  while (index < compositionPairNch.size() &&
-         compositionPairNch[index] == nch) {
-    if (compositionPairNSelected[index] == nSelected) {
+  while (index < mCompositionPairNch.size() &&
+         mCompositionPairNch[index] == nch) {
+    if (mCompositionPairNSelected[index] == nSelected) {
       return static_cast<int>(index);
     }
 
-    if (compositionPairNSelected[index] > nSelected) {
+    if (mCompositionPairNSelected[index] > nSelected) {
       break;
     }
 
@@ -1169,12 +1169,12 @@ int Tune::compositionPairIndex(int nch, int nSelected) const
 
 TuneSpecies* Tune::speciesAt(int index)
 {
-  return static_cast<TuneSpecies*>(species.UncheckedAt(index));
+  return static_cast<TuneSpecies*>(mSpecies.UncheckedAt(index));
 }
 
 const TuneSpecies* Tune::speciesAt(int index) const
 {
-  return static_cast<const TuneSpecies*>(species.UncheckedAt(index));
+  return static_cast<const TuneSpecies*>(mSpecies.UncheckedAt(index));
 }
 
 TuneSpecies* Tune::findSpecies(int pdg)
@@ -1182,7 +1182,7 @@ TuneSpecies* Tune::findSpecies(int pdg)
   for (int i = 0; i < numberOfSpecies(); ++i) {
     auto* entry = speciesAt(i);
 
-    if (entry && entry->pdg == pdg) {
+    if (entry && entry->mPdg == pdg) {
       return entry;
     }
   }
@@ -1195,7 +1195,7 @@ const TuneSpecies* Tune::findSpecies(int pdg) const
   for (int i = 0; i < numberOfSpecies(); ++i) {
     const auto* entry = speciesAt(i);
 
-    if (entry && entry->pdg == pdg) {
+    if (entry && entry->mPdg == pdg) {
       return entry;
     }
   }
@@ -1205,18 +1205,17 @@ const TuneSpecies* Tune::findSpecies(int pdg) const
 
 void Tune::detachFromDirectories()
 {
-  hNch.SetDirectory(nullptr);
-  hNSelected.SetDirectory(nullptr);
-  hNchSelected.SetDirectory(nullptr);
+  mHNch.SetDirectory(nullptr);
+  mHNSelected.SetDirectory(nullptr);
+  mHNchSelected.SetDirectory(nullptr);
 
-  hEventsVsActivitySelected.SetDirectory(nullptr);
+  mHEventsVsActivitySelected.SetDirectory(nullptr);
 
-  pNch.SetDirectory(nullptr);
-  pNSelected.SetDirectory(nullptr);
-  pNchSelected.SetDirectory(nullptr);
+  mPNch.SetDirectory(nullptr);
+  mPNSelected.SetDirectory(nullptr);
+  mPNchSelected.SetDirectory(nullptr);
 
-
-  species.SetOwner(kTRUE);
+  mSpecies.SetOwner(kTRUE);
 
   for (int i = 0; i < numberOfSpecies(); ++i) {
     auto* entry = speciesAt(i);
