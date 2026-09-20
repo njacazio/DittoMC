@@ -126,8 +126,6 @@ class Tune : public TObject
   bool mFinalized = false;
 
   std::string mTeacher = "PYTHIA8";
-  std::string mPythiaCard;
-  std::string mPythiaCardContent;
 
   // Complete beam / generator metadata copied from the initialized teacher.
   // Ditto does not accept an independent collision system or energy: these
@@ -249,6 +247,16 @@ class Tune : public TObject
   void save(const std::string& fileName, const std::string& objectName = kObjectName) const;
 
   static std::unique_ptr<Tune> load(const std::string& fileName, const std::string& objectName = kObjectName);
+
+  /// Read a text file into a string. Throws std::runtime_error if the file cannot be opened.
+  static std::string readTextFile(const std::string& fileName);
+
+  /// Import the card information
+  void importPythiaCard(const std::string& pythiaCard);
+
+ private:
+  std::string mPythiaCard = "";        /// Name of the PYTHIA card used to generate the tune. This is stored in the tune for provenance and reproducibility, but is not used by Ditto at runtime.
+  std::string mPythiaCardContent = ""; /// Content of the PYTHIA card used to generate the tune. This is stored in the tune for provenance and reproducibility, but is not used by Ditto at runtime.
 
   ClassDefOverride(Tune, 8);
 };

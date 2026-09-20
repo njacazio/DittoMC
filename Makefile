@@ -13,7 +13,7 @@ ifneq ($(strip $(PYTHIA_ROOT)),)
 CMAKE_CONFIGURE_ARGS += -DPYTHIA_ROOT=$(PYTHIA_ROOT)
 endif
 
-.PHONY: all configure build install production clean rebuild tune gen val valTune doc doc-open test
+.PHONY: all configure build install production clean rebuild tune gen val valTune doc doc-open test tuneAO2D
 
 all: build
 
@@ -42,6 +42,9 @@ rebuild: clean install
 
 tune: install
 	root -l -b -q Tuning/exampleTuner.C
+
+tuneAO2D: install
+	root -l -b -q Tuning/tuneAO2D.C
 
 gen: install
 	root -l -b -q Generation/example.C

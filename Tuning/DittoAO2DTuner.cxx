@@ -15,12 +15,11 @@
 
 #include "DittoTune.h"
 
-#ifndef __ROOTCLING__
-
 #include <TClass.h>
 #include <TDatabasePDG.h>
 #include <TDirectory.h>
 #include <TFile.h>
+#include <TGrid.h>
 #include <TKey.h>
 #include <TList.h>
 #include <TParticlePDG.h>
@@ -32,6 +31,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -52,8 +52,7 @@ constexpr float kMaxPhysicalPrimaryRadius = 5.f; // cm, O2 definition
 
 bool startsWith(const std::string& value, const std::string& prefix)
 {
-  return value.size() >= prefix.size() &&
-         value.compare(0, prefix.size(), prefix) == 0;
+  return value.size() >= prefix.size() && value.compare(0, prefix.size(), prefix) == 0;
 }
 
 /// Extract the HepMC status from the O2 MCGenStatusEncoding without requiring
@@ -129,13 +128,25 @@ TTree* findTree(TDirectory& directory, const std::string& prefix)
       continue;
     }
 
-    if (bestName.empty() || name > bestName) {
+    if (name == prefix) {
+      bestName = name;
+      break;
+    }
+    if (startsWith(name, prefix + "_") && name > bestName) {
       bestName = name;
     }
   }
 
   if (bestName.empty()) {
+    throw std::runtime_error("Ditto::AO2DTuner: no AO2D table matching prefix " + prefix +
+                             " found in " + directory.GetPath());
     return nullptr;
+  }
+  // Final check on the naming, ideally the found name should be equal to prefix or start with prefix + "_". This is a sanity check to avoid accidentally picking up an unrelated tree.
+  if (bestName != prefix && !startsWith(bestName, prefix + "_")) {
+    throw std::runtime_error("Ditto::AO2DTuner: found AO2D table " + bestName +
+                             " in " + directory.GetPath() +
+                             " does not match expected prefix " + prefix);
   }
   return dynamic_cast<TTree*>(directory.Get(bestName.c_str()));
 }
@@ -284,11 +295,15 @@ struct AO2DTunerImpl {
 
   void validateConfig() const
   {
-    if (!std::isfinite(config.sqrtSNN) || config.sqrtSNN < 0.0) {
-      throw std::invalid_argument("Ditto::AO2DTuner: sqrtSNN must be finite and >= 0");
+    if (config.mPythiaCard.empty()) {
+      throw std::invalid_argument("Ditto::AO2DTuner: mPythiaCard must not be empty");
     }
-    if (config.beamFrameType < 0) {
-      throw std::invalid_argument("Ditto::AO2DTuner: beamFrameType must be >= 0");
+    // Check that the card points at an existing file
+    if (!std::ifstream(config.mPythiaCard).good()) {
+      throw std::invalid_argument("Ditto::AO2DTuner: mPythiaCard file does not exist or is not readable: " + config.mPythiaCard);
+    }
+    if (config.mInputFiles.empty()) {
+      throw std::invalid_argument("Ditto::AO2DTuner: mInputFiles must not be empty");
     }
   }
 
@@ -304,17 +319,12 @@ struct AO2DTunerImpl {
 
     auto& outputTune = accumulator->tune();
     outputTune.mTeacher = "AO2D-MC";
-    outputTune.mPythiaCard.clear();
-    outputTune.mPythiaCardContent.clear();
-    outputTune.mBeamIdA = config.beamIdA;
-    outputTune.mBeamIdB = config.beamIdB;
-    outputTune.mBeamFrameType = config.beamFrameType;
-    outputTune.mSqrtSNN = config.sqrtSNN;
+    outputTune.importPythiaCard(config.mPythiaCard);
   }
 
   bool reachedEventLimit() const
   {
-    return config.maxEvents > 0 && accumulator->processedEvents() >= config.maxEvents;
+    return config.mMaxEvents > 0 && accumulator->processedEvents() >= config.mMaxEvents;
   }
 
   void submitEvent()
@@ -327,7 +337,7 @@ struct AO2DTunerImpl {
     eventBuffer.clear();
 
     const auto n = accumulator->processedEvents();
-    if (config.progressEvery > 0 && n % config.progressEvery == 0) {
+    if (config.mProgressEvery > 0 && n % config.mProgressEvery == 0) {
       std::cout << "Ditto AO2D tuner: " << n << " events processed\n";
     }
   }
@@ -343,7 +353,7 @@ struct AO2DTunerImpl {
   {
     ++processedParticles;
 
-    if (!isSelected(config.particleSelection, flags, statusCode, vx, vy)) {
+    if (!isSelected(config.mParticleSelection, flags, statusCode, vx, vy)) {
       return false;
     }
 
@@ -352,7 +362,7 @@ struct AO2DTunerImpl {
       charge = particleDatabase.chargeType(pdg);
     } catch (const std::exception&) {
       ++unknownPdgParticles;
-      if (config.ignoreUnknownPdg) {
+      if (config.mIgnoreUnknownPdg) {
         return false;
       }
       throw;
@@ -372,9 +382,7 @@ struct AO2DTunerImpl {
     auto* collisionTree = findTree(directory, "O2mccollision");
 
     if (!particleTree || !collisionTree) {
-      throw std::runtime_error(
-        "Ditto::AO2DTuner: missing O2mcparticle/O2mccollision table in " +
-        fileName + ":" + directory.GetPath());
+      throw std::runtime_error("Ditto::AO2DTuner: missing O2mcparticle/O2mccollision table in " + fileName + ":" + directory.GetPath());
     }
 
     const Long64_t nCollisions = collisionTree->GetEntries();
@@ -403,9 +411,8 @@ struct AO2DTunerImpl {
 
       const int collision = *mcCollisionId;
       if (collision < 0 || collision >= nCollisions) {
-        throw std::runtime_error(
-          "Ditto::AO2DTuner: MC particle refers to invalid collision index " +
-          std::to_string(collision));
+        throw std::runtime_error("Ditto::AO2DTuner: MC particle refers to invalid collision index " + std::to_string(collision) +
+                                 " while nCollisions = " + std::to_string(nCollisions));
       }
       if (collision < currentCollision) {
         throw std::runtime_error(
@@ -439,6 +446,12 @@ struct AO2DTunerImpl {
 
   void processFile(const std::string& fileName)
   {
+    const int eventsBefore = accumulator->processedEvents();
+    if (startsWith(fileName, "alien://") && !gGrid) {
+      if (TGrid::Connect("alien://") == nullptr) {
+        throw std::runtime_error("Ditto::AO2DTuner: could not connect to AliEn");
+      }
+    }
     std::unique_ptr<TFile> file(TFile::Open(fileName.c_str(), "READ"));
     if (!file || file->IsZombie()) {
       throw std::runtime_error("Ditto::AO2DTuner: could not open AO2D file: " + fileName);
@@ -446,9 +459,7 @@ struct AO2DTunerImpl {
 
     const auto directories = dataframeDirectories(*file);
     if (directories.empty()) {
-      throw std::runtime_error(
-        "Ditto::AO2DTuner: no DF_* directories containing O2mcparticle found in " +
-        fileName);
+      throw std::runtime_error("Ditto::AO2DTuner: no DF_* directories containing O2mcparticle found in " + fileName);
     }
 
     for (auto* directory : directories) {
@@ -457,6 +468,9 @@ struct AO2DTunerImpl {
       }
       processDirectory(*directory, fileName);
     }
+
+    const int eventsAfter = accumulator->processedEvents();
+    std::cout << "Ditto AO2D tuner: processed " << (eventsAfter - eventsBefore) << " events from " << fileName << "\n";
   }
 
   void run()
@@ -464,14 +478,14 @@ struct AO2DTunerImpl {
     if (ran) {
       throw std::runtime_error("Ditto::AO2DTuner: run() may only be called once");
     }
-    if (config.inputFiles.empty()) {
+    if (config.mInputFiles.empty()) {
       throw std::invalid_argument("Ditto::AO2DTuner: no AO2D input files configured");
     }
 
     ran = true;
     const auto start = std::chrono::steady_clock::now();
 
-    for (const auto& fileName : config.inputFiles) {
+    for (const auto& fileName : config.mInputFiles) {
       if (reachedEventLimit()) {
         break;
       }
@@ -527,7 +541,7 @@ void AO2DTuner::addFile(const std::string& fileName)
   if (mImpl->ran) {
     throw std::runtime_error("Ditto::AO2DTuner: cannot add files after run()");
   }
-  mImpl->config.inputFiles.push_back(fileName);
+  mImpl->config.mInputFiles.push_back(fileName);
 }
 
 void AO2DTuner::run()
@@ -583,5 +597,3 @@ const Tune& AO2DTuner::tune() const
 }
 
 } // namespace Ditto
-
-#endif // __ROOTCLING__

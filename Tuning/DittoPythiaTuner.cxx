@@ -15,16 +15,11 @@
 
 #include "DittoTune.h"
 
-// ACLiC/rootcling only needs to see the public declarations from the header.
-// Hide all implementation details from dictionary generation.
-#ifndef __ROOTCLING__
-
 #include <Pythia8/Pythia.h>
 
 #include <chrono>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -52,19 +47,6 @@ std::string cardPath(const std::string& card)
 {
   const std::size_t slash = card.find_last_of("/\\");
   return slash == std::string::npos ? "" : card.substr(0, slash + 1);
-}
-
-std::string readTextFile(const std::string& fileName)
-{
-  std::ifstream input(fileName);
-
-  if (!input) {
-    throw std::runtime_error("Ditto::PythiaTuner: could not read PYTHIA card: " + fileName);
-  }
-
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  return buffer.str();
 }
 
 } // namespace
@@ -144,12 +126,11 @@ struct TunerImpl {
 
     auto& tune = accumulator->tune();
     tune.mTeacher = "PYTHIA8";
-    tune.mPythiaCard = config.pythiaCard;
-    tune.mPythiaCardContent = readTextFile(config.pythiaCard);
     tune.mBeamIdA = pythia->settings.mode("Beams:idA");
     tune.mBeamIdB = pythia->settings.mode("Beams:idB");
     tune.mBeamFrameType = pythia->settings.mode("Beams:frameType");
     tune.mSqrtSNN = pythia->settings.parm("Beams:eCM");
+    tune.importPythiaCard(config.pythiaCard);
   }
 
   std::uint64_t generatedEvents() const
@@ -402,5 +383,3 @@ const Tune& PythiaTuner::tune() const
 }
 
 } // namespace Ditto
-
-#endif // __ROOTCLING__

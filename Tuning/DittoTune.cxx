@@ -18,8 +18,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <fstream>
+#include <iostream>
 #include <new>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 
 ClassImp(Ditto::TuneSpecies);
 ClassImp(Ditto::Tune);
@@ -557,47 +561,46 @@ Tune::Tune()
   detachFromDirectories();
 }
 
-Tune::Tune(const Tune& other)
-  : TObject(other),
-    mFormatVersion(other.mFormatVersion),
-    mFinalized(other.mFinalized),
-    mTeacher(other.mTeacher),
-    mPythiaCard(other.mPythiaCard),
-    mPythiaCardContent(other.mPythiaCardContent),
-    mBeamIdA(other.mBeamIdA),
-    mBeamIdB(other.mBeamIdB),
-    mBeamFrameType(other.mBeamFrameType),
-    mSqrtSNN(other.mSqrtSNN),
-    mAzimuthModel(other.mAzimuthModel),
-    mFinalStatus(other.mFinalStatus),
-    mNEvents(other.mNEvents),
-    mNAttempts(other.mNAttempts),
-    mGenerationTimeSeconds(other.mGenerationTimeSeconds),
-    mActivityOverflowEvents(other.mActivityOverflowEvents),
-    mSelectedMultiplicityOverflowEvents(other.mSelectedMultiplicityOverflowEvents),
-    mPtOverflowParticles(other.mPtOverflowParticles),
-    mSpeciesMultiplicityOverflowEvents(other.mSpeciesMultiplicityOverflowEvents),
-    mCentralChargedCoverageMismatchEvents(other.mCentralChargedCoverageMismatchEvents),
-    mCentralChargedCoverageMissingParticles(other.mCentralChargedCoverageMissingParticles),
-    mActivityEtaMax(other.mActivityEtaMax),
-    mParticleEtaMax(other.mParticleEtaMax),
-    mPtMax(other.mPtMax),
-    mActivityEdges(other.mActivityEdges),
-    mSelectedMultiplicityEdges(other.mSelectedMultiplicityEdges),
-    mHNch(other.mHNch),
-    mHNSelected(other.mHNSelected),
-    mHNchSelected(other.mHNchSelected),
-    mHEventsVsActivitySelected(other.mHEventsVsActivitySelected),
-    mPNch(other.mPNch),
-    mPNSelected(other.mPNSelected),
-    mPNchSelected(other.mPNchSelected),
-    mCompositionTemplateCapPerPair(other.mCompositionTemplateCapPerPair),
-    mCompositionPairNch(other.mCompositionPairNch),
-    mCompositionPairNSelected(other.mCompositionPairNSelected),
-    mCompositionPairOffsets(other.mCompositionPairOffsets),
-    mCompositionPairEventsSeen(other.mCompositionPairEventsSeen),
-    mCompositionCentralCounts(other.mCompositionCentralCounts),
-    mCompositionOtherCounts(other.mCompositionOtherCounts)
+Tune::Tune(const Tune& other) : TObject(other),
+                                mFormatVersion(other.mFormatVersion),
+                                mFinalized(other.mFinalized),
+                                mTeacher(other.mTeacher),
+                                mPythiaCard(other.mPythiaCard),
+                                mPythiaCardContent(other.mPythiaCardContent),
+                                mBeamIdA(other.mBeamIdA),
+                                mBeamIdB(other.mBeamIdB),
+                                mBeamFrameType(other.mBeamFrameType),
+                                mSqrtSNN(other.mSqrtSNN),
+                                mAzimuthModel(other.mAzimuthModel),
+                                mFinalStatus(other.mFinalStatus),
+                                mNEvents(other.mNEvents),
+                                mNAttempts(other.mNAttempts),
+                                mGenerationTimeSeconds(other.mGenerationTimeSeconds),
+                                mActivityOverflowEvents(other.mActivityOverflowEvents),
+                                mSelectedMultiplicityOverflowEvents(other.mSelectedMultiplicityOverflowEvents),
+                                mPtOverflowParticles(other.mPtOverflowParticles),
+                                mSpeciesMultiplicityOverflowEvents(other.mSpeciesMultiplicityOverflowEvents),
+                                mCentralChargedCoverageMismatchEvents(other.mCentralChargedCoverageMismatchEvents),
+                                mCentralChargedCoverageMissingParticles(other.mCentralChargedCoverageMissingParticles),
+                                mActivityEtaMax(other.mActivityEtaMax),
+                                mParticleEtaMax(other.mParticleEtaMax),
+                                mPtMax(other.mPtMax),
+                                mActivityEdges(other.mActivityEdges),
+                                mSelectedMultiplicityEdges(other.mSelectedMultiplicityEdges),
+                                mHNch(other.mHNch),
+                                mHNSelected(other.mHNSelected),
+                                mHNchSelected(other.mHNchSelected),
+                                mHEventsVsActivitySelected(other.mHEventsVsActivitySelected),
+                                mPNch(other.mPNch),
+                                mPNSelected(other.mPNSelected),
+                                mPNchSelected(other.mPNchSelected),
+                                mCompositionTemplateCapPerPair(other.mCompositionTemplateCapPerPair),
+                                mCompositionPairNch(other.mCompositionPairNch),
+                                mCompositionPairNSelected(other.mCompositionPairNSelected),
+                                mCompositionPairOffsets(other.mCompositionPairOffsets),
+                                mCompositionPairEventsSeen(other.mCompositionPairEventsSeen),
+                                mCompositionCentralCounts(other.mCompositionCentralCounts),
+                                mCompositionOtherCounts(other.mCompositionOtherCounts)
 {
   reconstructSparseLike(other.mHNSelectedVsNch, mHNSelectedVsNch);
   reconstructSparseLike(other.mHNchSelectedVsNch, mHNchSelectedVsNch);
@@ -813,6 +816,101 @@ void Tune::initialize(double activityEtaMaxIn,
   detachFromDirectories();
 }
 
+std::string Tune::readTextFile(const std::string& fileName)
+{
+  std::ifstream input(fileName);
+
+  if (!input) {
+    throw std::runtime_error("Ditto::PythiaTuner: could not read PYTHIA card: " + fileName);
+  }
+
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+void Tune::importPythiaCard(const std::string& fileName)
+{
+  mPythiaCard = fileName;
+  mPythiaCardContent = readTextFile(fileName);
+
+  std::string cardBeamA;
+  std::string cardBeamB;
+  std::string cardFrameType;
+  std::string cardSqrtSNN;
+
+  std::istringstream cardStream(mPythiaCardContent);
+  std::string line;
+
+  while (std::getline(cardStream, line)) {
+    std::istringstream lineStream(line);
+
+    std::string key;
+    std::string separator;
+    std::string value;
+
+    if (!(lineStream >> key)) {
+      continue;
+    }
+
+    // Ignore comments
+    if (key.starts_with('#')) {
+      continue;
+    }
+
+    if (!(lineStream >> separator >> value)) {
+      continue;
+    }
+
+    if (separator != "=") {
+      continue;
+    }
+
+    if (key == "Beams:idA") {
+      cardBeamA = value;
+    } else if (key == "Beams:idB") {
+      cardBeamB = value;
+    } else if (key == "Beams:frameType") {
+      cardFrameType = value;
+    } else if (key == "Beams:eCM") {
+      cardSqrtSNN = value;
+    }
+  }
+
+  if (cardBeamA.empty()) {
+    throw std::runtime_error("Ditto::Tune: could not find Beams:idA in PYTHIA card");
+  }
+  if (cardBeamB.empty()) {
+    throw std::runtime_error("Ditto::Tune: could not find Beams:idB in PYTHIA card");
+  }
+  if (cardFrameType.empty()) {
+    throw std::runtime_error("Ditto::Tune: could not find Beams:frameType in PYTHIA card");
+  }
+  if (cardSqrtSNN.empty()) {
+    throw std::runtime_error("Ditto::Tune: could not find Beams:eCM in PYTHIA card");
+  }
+  if (mBeamIdA == 0) {
+    mBeamIdA = std::stoi(cardBeamA);
+  } else if (mBeamIdA != std::stoi(cardBeamA)) {
+    throw std::runtime_error("Ditto::Tune: Beams:idA in PYTHIA card does not match existing beam ID");
+  }
+  if (mBeamIdB == 0) {
+    mBeamIdB = std::stoi(cardBeamB);
+  } else if (mBeamIdB != std::stoi(cardBeamB)) {
+    throw std::runtime_error("Ditto::Tune: Beams:idB in PYTHIA card does not match existing beam ID");
+  }
+  if (mBeamFrameType == 0) {
+    mBeamFrameType = std::stoi(cardFrameType);
+  } else if (mBeamFrameType != std::stoi(cardFrameType)) {
+    throw std::runtime_error("Ditto::Tune: Beams:frameType in PYTHIA card does not match existing beam frame type");
+  }
+  if (mSqrtSNN == 0.0) {
+    mSqrtSNN = std::stof(cardSqrtSNN);
+  } else if (mSqrtSNN != std::stof(cardSqrtSNN)) {
+    throw std::runtime_error("Ditto::Tune: Beams:sqrtSNN in PYTHIA card does not match existing sqrtSNN");
+  }
+}
+
 void Tune::finalize()
 {
   mPNch = mHNch;
@@ -848,8 +946,7 @@ void Tune::validate(bool requireFinalized) const
     throw std::runtime_error("Ditto::Tune: unsupported tune format version");
   }
 
-  if (mTeacher.empty() ||
-      mPythiaCardContent.empty()) {
+  if (mTeacher.empty() || mPythiaCardContent.empty()) {
     throw std::runtime_error("Ditto::Tune: missing teacher generator-card metadata");
   }
 

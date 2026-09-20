@@ -66,7 +66,7 @@ void exampleTuner(std::uint64_t nEvents, const std::string pythiaCard,
   std::cout << "Generated " << tuner.generatedEvents() << " successful PYTHIA events\n";
 }
 
-void exampleTuner(int cfg = 0, int events = 0)
+void exampleTuner(const int cfg = 1, const int events = 0)
 {
 
   std::uint64_t nEvents = 0;
@@ -75,7 +75,7 @@ void exampleTuner(int cfg = 0, int events = 0)
   int maxNch = 0, maxSelectedMultiplicity = 0, maxSpeciesMultiplicity = 0, progressEvery = 0;
   switch (cfg) {
     case 0: // pp at 13.6 TeV
-      nEvents = 1E5;
+      nEvents = 1E7;
       pythiaCard = "Tuning/cards/pythia8_inel_136tev.cfg";
       activityEdges = {0.0, 5.0, 10.0, 20.0, 30.0, 40.0, 60.0, 80.0, 100.0, 150.0};
       selectedMultiplicityEdges = {0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 80.0, 100.0,

@@ -15,8 +15,6 @@
 
 #include "DittoTune.h"
 
-#ifndef __ROOTCLING__
-
 #include <TClonesArray.h>
 #include <TFile.h>
 #include <TH1D.h>
@@ -1615,5 +1613,3 @@ void Generator::registerTTreeOutput(const std::string& fileName)
 }
 
 } // namespace Ditto
-
-#endif // __ROOTCLING__

@@ -43,28 +43,24 @@ enum class AO2DParticleSelection {
 /// running environment) work transparently.
 struct AO2DTunerConfig : public TuneAccumulatorConfig {
   /// Input AO2D files. Local paths and ROOT-supported remote URLs are accepted.
-  std::vector<std::string> inputFiles;
+  std::vector<std::string> mInputFiles;
 
   /// MC-particle selection used to define the source event.
-  AO2DParticleSelection particleSelection = AO2DParticleSelection::GeneratorFinal;
+  AO2DParticleSelection mParticleSelection = AO2DParticleSelection::GeneratorFinal;
 
   /// Stop after this many MC collisions. 0 means process every input event.
-  std::uint64_t maxEvents = 0;
+  std::uint64_t mMaxEvents = 0;
 
   /// Print a progress line every N processed events. 0 disables progress.
-  std::uint64_t progressEvery = 10000;
+  std::uint64_t mProgressEvery = 10000;
 
-  /// Beam metadata to persist in the tune. AO2D itself does not provide these
-  /// in a source-independent way, so they are explicit configuration here.
-  int beamIdA = 0;
-  int beamIdB = 0;
-  int beamFrameType = 1;
-  double sqrtSNN = 0.0;
+  /// Reference card metadata for the tune. Ditto persists these values in the tune file.
+  std::string mPythiaCard;
 
   /// Unknown PDG codes make Nch ambiguous because the charge is unknown.
   /// Therefore the default is to fail loudly. If enabled, unknown particles
   /// are skipped entirely and a warning count is printed at the end.
-  bool ignoreUnknownPdg = false;
+  bool mIgnoreUnknownPdg = false;
 };
 
 struct AO2DTunerImpl;

@@ -1,8 +1,9 @@
-R__LOAD_LIBRARY(libDitto.so)
-
 #include "DittoAO2DTuner.h"
 
-void tuneAO2D(const std::string& inputFile = "aodlist.txt")
+#include <fstream>
+
+void tuneAO2D(const std::string& inputFile = "aodlist.txt",
+              const std::string& refPythiaCard = "Tuning/cards/pythia8_inel_136tev.cfg")
 {
   Ditto::AO2DTunerConfig cfg;
 
@@ -11,26 +12,23 @@ void tuneAO2D(const std::string& inputFile = "aodlist.txt")
   std::string line;
   while (std::getline(file, line)) {
     if (!line.empty()) {
-      cfg.inputFiles.push_back(line);
+      cfg.mInputFiles.push_back(line);
     }
   }
 
-  cfg.beamIdA = 2212;
-  cfg.beamIdB = 2212;
-  cfg.beamFrameType = 1;
-  cfg.sqrtSNN = 13600.;
+  cfg.mPythiaCard = refPythiaCard;
 
   // 0 = all MC collisions in all input files.
-  cfg.maxEvents = 0;
-  cfg.progressEvery = 10000;
+  cfg.mMaxEvents = 0;
+  cfg.mProgressEvery = 10000;
 
   // Closest AO2D equivalent to PYTHIA isFinal().
-  cfg.particleSelection = Ditto::AO2DParticleSelection::GeneratorFinal;
+  cfg.mParticleSelection = Ditto::AO2DParticleSelection::GeneratorFinal;
 
   // The normal TuneAccumulator configuration is available here too.
-  cfg.activityEtaMax = 0.5;
-  cfg.particleEtaMax = 5.0;
-  cfg.ptMax = 20.0;
+  cfg.mActivityEtaMax = 0.5;
+  cfg.mParticleEtaMax = 5.0;
+  cfg.mPtMax = 20.0;
 
   Ditto::AO2DTuner tuner(cfg);
   tuner.run();

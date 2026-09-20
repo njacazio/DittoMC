@@ -84,16 +84,16 @@ void example(int cfg = 0)
   std::string tuneFile;
   switch (cfg) {
     case 0:
-      nEvents = 1E6;
+      nEvents = 1E8;
       tuneFile = Ditto::Tunes::resolve("https://github.com/njacazio/DittoMC/releases/download/v1.0.0/Ditto_tune_pythia8_inel_136tev.root");
       break;
     case 1:
       nEvents = 1E6;
-      tuneFile = "Ditto_tune_pythia8_OO_536.root";
+      tuneFile = "https://github.com/njacazio/DittoMC/releases/download/v1.0.0/Ditto_tune_pythia8_OO_536.root";
       break;
     case 2:
       nEvents = 1E4;
-      tuneFile = "Ditto_tune_pythia8_PbPb_536tev.root";
+      tuneFile = "https://github.com/njacazio/DittoMC/releases/download/v1.0.0/Ditto_tune_pythia8_PbPb_536tev.root";
       break;
     default:
       throw std::invalid_argument("example: unrecognized cfg value: " + std::to_string(cfg));
