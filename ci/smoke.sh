@@ -17,25 +17,23 @@ echo "=== Check shared-library dependencies ==="
 ldd lib/libDitto.so
 
 if ! ldd lib/libDitto.so | grep -q libcurl; then
-  echo "ERROR: libDitto.so is not linked against libcurl"
-  exit 1
+    echo "ERROR: libDitto.so is not linked against libcurl"
+    exit 1
 fi
 
 echo "=== Tiny PYTHIA tuning run ==="
 
-root -l -b -q \
-  'Tuning/exampleTuner.C(500,"Tuning/cards/pythia8_inel_136tev.cfg")'
+root -l -b -q 'Tuning/exampleTuner.C(0, 500)'
 
-TUNE="Tuning/tunes/Ditto_tune_pythia8_inel_136tev.root"
+TUNE="Ditto_tune_pythia8_inel_136tev.root"
 
 if [[ ! -s "${TUNE}" ]]; then
-  echo "ERROR: tune was not produced"
-  exit 1
+    echo "ERROR: tune was not produced"
+    exit 1
 fi
 
 echo "=== Tiny Ditto generation run ==="
 
-root -l -b -q \
-  "Generation/example.C(1000,\"${TUNE}\",false)"
+root -l -b -q "Generation/example.C(1000,\"${TUNE}\",false)"
 
 echo "=== CI smoke test passed ==="

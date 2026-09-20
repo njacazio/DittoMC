@@ -66,7 +66,7 @@ void exampleTuner(std::uint64_t nEvents, const std::string pythiaCard,
   std::cout << "Generated " << tuner.generatedEvents() << " successful PYTHIA events\n";
 }
 
-void exampleTuner(int cfg = 0)
+void exampleTuner(int cfg = 0, int events = 0)
 {
 
   std::uint64_t nEvents = 0;
@@ -113,6 +113,5 @@ void exampleTuner(int cfg = 0)
     default:
       throw std::invalid_argument("exampleTuner: unrecognized cfg value: " + std::to_string(cfg));
   }
-
-  exampleTuner(nEvents, pythiaCard, activityEdges, selectedMultiplicityEdges, maxNch, maxSelectedMultiplicity, maxSpeciesMultiplicity, progressEvery);
+  exampleTuner(events > 0 ? events : nEvents, pythiaCard, activityEdges, selectedMultiplicityEdges, maxNch, maxSelectedMultiplicity, maxSpeciesMultiplicity, progressEvery);
 }
