@@ -8,20 +8,27 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: configure
-      run: ./configure
+    - name: Set up environment
+      uses: mamba-org/setup-micromamba@v3
+      with:
+        environment-file: ci/environment.yml
+        environment-name: ditto-ci
+        cache-environment: true
+        cache-downloads: true
 
     - name: Install dependencies
-      run: make
+      shell: micromamba-shell {0}
+      run: |
+        export PYTHIA_ROOT="${CONDA_PREFIX}"
+        make install JOBS=2
 
     - name: Run check
-      run: make check
-
-    - name: Run distcheck
-      run: make distcheck
+      shell: micromamba-shell {0}
+      run: |
+        export PYTHIA_ROOT="${CONDA_PREFIX}"
+        make test
