@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(ROOT CONFIG REQUIRED Core RIO Tree Hist Physics EG)
+find_package(ROOT CONFIG REQUIRED Core RIO Tree TreePlayer Hist Physics EG)
 find_package(CURL REQUIRED)
 
 set(PYTHIA_ROOT "$ENV{PYTHIA_ROOT}" CACHE PATH "Pythia8 installation prefix")
@@ -78,6 +78,7 @@ target_link_libraries(Ditto
 )
 
 add_library(DittoTuner SHARED Tuning/DittoPythiaTuner.cxx
+                              Tuning/DittoAO2DTuner.cxx
                               Tuning/DittoTuneAccumulator.cxx)
 add_library(Ditto::DittoTuner ALIAS DittoTuner)
 
@@ -91,6 +92,7 @@ target_include_directories(DittoTuner
 target_link_libraries(DittoTuner
   PUBLIC
     Ditto::Ditto
+    ROOT::TreePlayer
     ${Ditto_PYTHIA_TARGET}
 )
 
@@ -111,7 +113,26 @@ install(FILES
   Generation/Ditto.h
   Tuning/DittoTune.h
   Tuning/DittoPythiaTuner.h
+  Tuning/DittoAO2DTuner.h
   Tuning/DittoTuneAccumulator.h
   Tuning/DittoTuneDownload.h
   DESTINATION include/Ditto
 )
+
+include(CTest)
+
+if(BUILD_TESTING)
+  add_executable(testTuneAccumulator
+    Tuning/tests/testTuneAccumulator.cxx
+  )
+
+  target_link_libraries(testTuneAccumulator
+    PRIVATE
+      Ditto::Ditto
+      Ditto::DittoTuner
+  )
+
+  add_test(NAME TuneAccumulator
+    COMMAND testTuneAccumulator
+  )
+endif()

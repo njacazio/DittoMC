@@ -1,0 +1,12 @@
+name: ditto-ci
+
+channels:
+  - conda-forge
+
+dependencies:
+  - cmake
+  - make
+  - cxx-compiler
+  - root
+  - pythia8
+  - libcurl

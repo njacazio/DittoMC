@@ -7,12 +7,13 @@ PRODUCTION_CXX_FLAGS := -O3 -DNDEBUG -march=native -mtune=native
 
 CMAKE_CONFIGURE_ARGS := -S . -B $(BUILD_DIR) \
 	-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-	-DCMAKE_CXX_FLAGS_RELEASE="$(CXX_FLAGS_RELEASE)"
+	-DCMAKE_CXX_FLAGS_RELEASE="$(CXX_FLAGS_RELEASE)" \
+	-DBUILD_TESTING=ON
 ifneq ($(strip $(PYTHIA_ROOT)),)
 CMAKE_CONFIGURE_ARGS += -DPYTHIA_ROOT=$(PYTHIA_ROOT)
 endif
 
-.PHONY: all configure build install production clean rebuild tune gen val valTune doc doc-open
+.PHONY: all configure build install production clean rebuild tune gen val valTune doc doc-open test
 
 all: build
 
@@ -24,6 +25,9 @@ build: configure
 
 install: build
 	$(CMAKE) --install $(BUILD_DIR)
+
+test: build
+	ctest --test-dir build --output-on-failure
 
 production:
 	$(MAKE) CXX_FLAGS_RELEASE="$(PRODUCTION_CXX_FLAGS)" install
