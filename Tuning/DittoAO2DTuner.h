@@ -37,10 +37,14 @@ enum class AO2DParticleSelection {
 
 /// Configuration for tuning directly from one or more AO2D files.
 ///
-/// This is deliberately a plain ROOT reader. It does not depend on DPL or on
-/// O2Physics analysis tasks. Input strings are passed to TFile::Open(), so
-/// ROOT-supported remote protocols (including alien:// when available in the
-/// running environment) work transparently.
+/// The implementation is deliberately independent of DPL and O2Physics
+/// analysis tasks. The first input file is inspected to discover the exact
+/// versioned AO2D table names. All DF_* particle tables are then concatenated
+/// into a ROOT TChain, while DF boundaries are retained internally so that
+/// local AO2D collision indices remain correct.
+///
+/// Local paths and ROOT-supported remote URLs are accepted. In particular,
+/// alien:// inputs work when the ROOT/AliEn plugin is available.
 struct AO2DTunerConfig : public TuneAccumulatorConfig {
   /// Input AO2D files. Local paths and ROOT-supported remote URLs are accepted.
   std::vector<std::string> mInputFiles;
@@ -54,8 +58,12 @@ struct AO2DTunerConfig : public TuneAccumulatorConfig {
   /// Print a progress line every N processed events. 0 disables progress.
   std::uint64_t mProgressEvery = 10000;
 
-  /// Reference card metadata for the tune. Ditto persists these values in the tune file.
+  /// Reference PYTHIA card metadata persisted in the tune file.
   std::string mPythiaCard;
+
+  /// Number of AO2D files processed in one TChain.
+  /// 0 means all files in a single batch.
+  std::size_t mFileBatchSize = 10;
 
   /// Unknown PDG codes make Nch ambiguous because the charge is unknown.
   /// Therefore the default is to fail loudly. If enabled, unknown particles
@@ -69,16 +77,15 @@ struct AO2DTunerImpl;
 ///
 /// Typical ROOT-macro usage:
 ///
-///   Ditto::AO2DTunerConfig cfg;
-///   cfg.inputFiles = {"AO2D.root"};
-///   cfg.beamIdA = 2212;
-///   cfg.beamIdB = 2212;
-///   cfg.sqrtSNN = 13600.;
+/// \code{.cpp}
+/// Ditto::AO2DTunerConfig cfg;
+/// cfg.mInputFiles = {"AO2D.root"};
+/// cfg.mPythiaCard = "Tuning/cards/pythia8_inel_136tev.cfg";
 ///
-///   Ditto::AO2DTuner tuner(cfg);
-///   tuner.run();
-///   tuner.save("Ditto_tune_AO2D.root");
-///
+/// Ditto::AO2DTuner tuner(cfg);
+/// tuner.run();
+/// tuner.save("Ditto_tune_AO2D.root");
+/// \endcode
 class AO2DTuner
 {
  public:
@@ -88,10 +95,7 @@ class AO2DTuner
   AO2DTuner(const AO2DTuner&) = delete;
   AO2DTuner& operator=(const AO2DTuner&) = delete;
 
-  /// Add an input after construction but before run().
-  void addFile(const std::string& fileName);
-
-  /// Process all configured input files (or maxEvents) and finalize the tune.
+  /// Process all configured input files (or mMaxEvents) and finalize the tune.
   /// May only be called once per object.
   void run();
 
@@ -103,7 +107,6 @@ class AO2DTuner
   std::uint64_t processedParticles() const;
   std::uint64_t selectedParticles() const;
   std::uint64_t unknownPdgParticles() const;
-
   const Tune& tune() const;
 
  private:

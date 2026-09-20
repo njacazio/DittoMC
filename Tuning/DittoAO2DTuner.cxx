@@ -15,13 +15,13 @@
 
 #include "DittoTune.h"
 
+#include <TChain.h>
 #include <TClass.h>
 #include <TDatabasePDG.h>
 #include <TDirectory.h>
 #include <TFile.h>
 #include <TGrid.h>
 #include <TKey.h>
-#include <TList.h>
 #include <TParticlePDG.h>
 #include <TTree.h>
 #include <TTreeReader.h>
@@ -31,6 +31,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -43,6 +45,7 @@
 
 namespace Ditto
 {
+
 namespace
 {
 
@@ -64,7 +67,6 @@ int hepMCStatusCode(int statusCode)
   const std::uint32_t bits = static_cast<std::uint32_t>(statusCode);
   constexpr std::uint32_t encodedMarker = 5u;
   constexpr std::uint32_t markerShift = 29u;
-
   if ((bits >> markerShift) != encodedMarker) {
     return statusCode;
   }
@@ -74,6 +76,7 @@ int hepMCStatusCode(int statusCode)
   if ((raw & 0x100u) != 0u) {
     raw |= ~hepMask; // sign-extend bit 8
   }
+
   return static_cast<int>(static_cast<std::int32_t>(raw));
 }
 
@@ -93,20 +96,18 @@ bool isSelected(AO2DParticleSelection selection,
 {
   switch (selection) {
     case AO2DParticleSelection::GeneratorFinal:
-      return (flags & kProducedByTransport) == 0u &&
-             hepMCStatusCode(statusCode) == 1;
-
+      return (flags & kProducedByTransport) == 0u && hepMCStatusCode(statusCode) == 1;
     case AO2DParticleSelection::PhysicalPrimary:
       return (protectedFlags(flags, vx, vy) & kPhysicalPrimary) != 0u;
   }
-
   return false;
 }
 
-/// Return the newest tree in a directory whose name starts with prefix.
-/// This accepts both unversioned and versioned AO2D tables, e.g.
-/// O2mcparticle, O2mcparticle_000, O2mcparticle_001.
-TTree* findTree(TDirectory& directory, const std::string& prefix)
+/// Return the AO2D tree name matching prefix in one directory.
+///
+/// The unversioned table is preferred when present. Otherwise the highest
+/// lexicographic version is used, e.g. O2mcparticle_001 over O2mcparticle_000.
+std::string findTreeName(TDirectory& directory, const std::string& prefix)
 {
   std::string bestName;
 
@@ -118,7 +119,7 @@ TTree* findTree(TDirectory& directory, const std::string& prefix)
     }
 
     const std::string name = key->GetName();
-    if (!startsWith(name, prefix)) {
+    if (name != prefix && !startsWith(name, prefix + "_")) {
       continue;
     }
 
@@ -128,31 +129,29 @@ TTree* findTree(TDirectory& directory, const std::string& prefix)
     }
 
     if (name == prefix) {
-      bestName = name;
-      break;
+      return name;
     }
-    if (startsWith(name, prefix + "_") && name > bestName) {
+
+    if (name > bestName) {
       bestName = name;
     }
   }
 
   if (bestName.empty()) {
-    throw std::runtime_error("Ditto::AO2DTuner: no AO2D table matching prefix " + prefix +
-                             " found in " + directory.GetPath());
-    return nullptr;
+    throw std::runtime_error("Ditto::AO2DTuner: no AO2D table matching prefix " +
+                             prefix + " found in " + directory.GetPath());
   }
-  // Final check on the naming, ideally the found name should be equal to prefix or start with prefix + "_". This is a sanity check to avoid accidentally picking up an unrelated tree.
-  if (bestName != prefix && !startsWith(bestName, prefix + "_")) {
-    throw std::runtime_error("Ditto::AO2DTuner: found AO2D table " + bestName +
-                             " in " + directory.GetPath() +
-                             " does not match expected prefix " + prefix);
-  }
-  return dynamic_cast<TTree*>(directory.Get(bestName.c_str()));
+
+  return bestName;
 }
 
-std::vector<TDirectory*> dataframeDirectories(TFile& file)
+/// Return DF_* directory names in deterministic order.
+///
+/// An empty string is used as a sentinel for small/private AO2Ds that store
+/// the tables directly at file root.
+std::vector<std::string> dataframeDirectoryNames(TFile& file)
 {
-  std::vector<std::pair<std::string, TDirectory*>> found;
+  std::vector<std::string> result;
 
   TIter next(file.GetListOfKeys());
   while (auto* object = next()) {
@@ -171,29 +170,68 @@ std::vector<TDirectory*> dataframeDirectories(TFile& file)
       continue;
     }
 
-    if (auto* dir = file.GetDirectory(name.c_str())) {
-      found.emplace_back(name, dir);
-    }
+    result.push_back(name);
   }
 
-  std::sort(found.begin(), found.end(), [](const auto& a, const auto& b) {
-    return a.first < b.first;
-  });
-
-  std::vector<TDirectory*> result;
-  result.reserve(found.size());
-  for (const auto& [name, dir] : found) {
-    (void)name;
-    result.push_back(dir);
-  }
-
-  // Some small/private AO2Ds may store the tables at file root. Support that
-  // layout as a convenience if there are no DF_* directories.
-  if (result.empty() && findTree(file, "O2mcparticle") != nullptr) {
-    result.push_back(&file);
+  std::sort(result.begin(), result.end());
+  if (result.empty()) {
+    result.emplace_back();
   }
 
   return result;
+}
+
+TDirectory& dataframeDirectory(TFile& file, const std::string& name)
+{
+  if (name.empty()) {
+    return file;
+  }
+
+  auto* directory = file.GetDirectory(name.c_str());
+  if (!directory) {
+    throw std::runtime_error("Ditto::AO2DTuner: could not open dataframe directory " +
+                             name + " in " + file.GetName());
+  }
+  return *directory;
+}
+
+TTree& exactTree(TDirectory& directory,
+                 const std::string& treeName,
+                 const std::string& fileName)
+{
+  auto* tree = dynamic_cast<TTree*>(directory.Get(treeName.c_str()));
+  if (!tree) {
+    throw std::runtime_error(
+      "Ditto::AO2DTuner: expected AO2D table " + treeName + " in " + fileName +
+      ":" + directory.GetPath() +
+      ". All input AO2Ds must use the schema discovered from the first file.");
+  }
+  return *tree;
+}
+
+std::string treePath(const std::string& directoryName, const std::string& treeName)
+{
+  return directoryName.empty() ? treeName : directoryName + "/" + treeName;
+}
+
+void ensureGridConnection(const std::string& fileName)
+{
+  if (startsWith(fileName, "alien://") && !gGrid) {
+    if (TGrid::Connect("alien://") == nullptr) {
+      throw std::runtime_error("Ditto::AO2DTuner: could not connect to AliEn");
+    }
+  }
+}
+
+std::unique_ptr<TFile> openAO2D(const std::string& fileName)
+{
+  ensureGridConnection(fileName);
+
+  std::unique_ptr<TFile> file(TFile::Open(fileName.c_str(), "READ"));
+  if (!file || file->IsZombie()) {
+    throw std::runtime_error("Ditto::AO2DTuner: could not open AO2D file: " + fileName);
+  }
+  return file;
 }
 
 double etaFromMomentum(float px, float py, float pz)
@@ -261,7 +299,8 @@ class ParticleDatabase
     if (isNuclearPdg(pdg)) {
       throw std::runtime_error(
         "configured nuclear species " + std::to_string(pdg) +
-        " is not present in ROOT TDatabasePDG; provide a ROOT PDG entry before constructing AO2DTuner");
+        " is not present in ROOT TDatabasePDG; provide a ROOT PDG entry before "
+        "constructing AO2DTuner");
     }
 
     throw std::runtime_error("configured species has unknown PDG code " +
@@ -275,8 +314,26 @@ class ParticleDatabase
 } // namespace
 
 struct AO2DTunerImpl {
-  explicit AO2DTunerImpl(const AO2DTunerConfig& cfg)
-    : config(cfg)
+  struct InputChunk {
+    InputChunk(std::string file, std::string directory, Long64_t nParticles, Long64_t nCollisions)
+      : fileName(std::move(file)),
+        directoryName(std::move(directory)),
+        nParticleEntries(nParticles),
+        nCollisions(nCollisions),
+        fileIndex(nextFileIndex++)
+    {
+    }
+    const std::string fileName;
+    const std::string directoryName;
+    const Long64_t nParticleEntries = 0;
+    const Long64_t nCollisions = 0;
+
+   private:
+    static std::size_t nextFileIndex;
+    const std::size_t fileIndex = 0;
+  };
+
+  explicit AO2DTunerImpl(const AO2DTunerConfig& cfg) : config(cfg)
   {
     validateConfig();
     configureAccumulator();
@@ -285,8 +342,15 @@ struct AO2DTunerImpl {
   AO2DTunerConfig config;
   ParticleDatabase particleDatabase;
   std::unique_ptr<TuneAccumulator> accumulator;
+  std::unique_ptr<TChain> particleChain;
+  std::vector<InputChunk> chunks;
   InputEvent eventBuffer;
 
+  std::string particleTreeName;
+  std::string collisionTreeName;
+
+  Long64_t totalParticleEntries = 0;
+  std::uint64_t totalInputEvents = 0;
   std::uint64_t processedParticles = 0;
   std::uint64_t selectedParticles = 0;
   std::uint64_t unknownPdgParticles = 0;
@@ -375,21 +439,151 @@ struct AO2DTunerImpl {
     return true;
   }
 
-  void processDirectory(TDirectory& directory, const std::string& fileName)
+  std::string formatDuration(double seconds)
   {
-    auto* particleTree = findTree(directory, "O2mcparticle");
-    auto* collisionTree = findTree(directory, "O2mccollision");
-
-    if (!particleTree || !collisionTree) {
-      throw std::runtime_error("Ditto::AO2DTuner: missing O2mcparticle/O2mccollision table in " + fileName + ":" + directory.GetPath());
+    if (!std::isfinite(seconds) || seconds < 0.0) {
+      return "--:--:--";
     }
 
-    const Long64_t nCollisions = collisionTree->GetEntries();
-    if (nCollisions < 0) {
-      throw std::runtime_error("Ditto::AO2DTuner: invalid MC collision count");
+    const auto total = static_cast<std::uint64_t>(seconds);
+
+    const auto hours = total / 3600;
+    const auto minutes = (total % 3600) / 60;
+    const auto secs = total % 60;
+
+    char buffer[32];
+    std::snprintf(
+      buffer,
+      sizeof(buffer),
+      "%02llu:%02llu:%02llu",
+      static_cast<unsigned long long>(hours),
+      static_cast<unsigned long long>(minutes),
+      static_cast<unsigned long long>(secs));
+
+    return buffer;
+  }
+
+  void discoverSchema(TFile& file, const std::vector<std::string>& directories)
+  {
+    if (directories.empty()) {
+      throw std::runtime_error("Ditto::AO2DTuner: no dataframe directories found in " + std::string(file.GetName()));
     }
 
-    TTreeReader reader(particleTree);
+    auto& firstDirectory = dataframeDirectory(file, directories.front());
+    particleTreeName = findTreeName(firstDirectory, "O2mcparticle");
+    collisionTreeName = findTreeName(firstDirectory, "O2mccollision");
+
+    std::cout << "Ditto AO2D tuner: schema from first input\n"
+              << "  particle table  : " << particleTreeName << "\n"
+              << "  collision table : " << collisionTreeName << "\n";
+  }
+
+  void discoverInputSchema()
+  {
+    auto file = openAO2D(config.mInputFiles.front());
+    const auto directories = dataframeDirectoryNames(*file);
+    discoverSchema(*file, directories);
+  }
+
+  void appendFileToChain(const std::string& fileName, std::size_t fileIndex)
+  {
+    auto file = openAO2D(fileName);
+    const auto directories = dataframeDirectoryNames(*file);
+
+    for (const auto& directoryName : directories) {
+      auto& directory = dataframeDirectory(*file, directoryName);
+      auto& particleTree = exactTree(directory, particleTreeName, fileName);
+      auto& collisionTree = exactTree(directory, collisionTreeName, fileName);
+
+      const Long64_t nParticles = particleTree.GetEntries();
+      const Long64_t nCollisions = collisionTree.GetEntries();
+      if (nParticles < 0 || nCollisions < 0) {
+        throw std::runtime_error("Ditto::AO2DTuner: invalid AO2D entry count in " + fileName + ":" + directory.GetPath());
+      }
+
+      chunks.push_back(InputChunk{fileName,
+                                  directoryName,
+                                  nParticles,
+                                  nCollisions});
+
+      if (static_cast<unsigned long long>(nCollisions) > std::numeric_limits<std::uint64_t>::max() - totalInputEvents) {
+        throw std::overflow_error("Ditto::AO2DTuner: total MC collision count overflow");
+      }
+      totalInputEvents += static_cast<std::uint64_t>(nCollisions);
+
+      // Empty particle tables still correspond to valid empty MC collisions,
+      // represented by the chunk metadata. They do not need a TChain element.
+      if (nParticles == 0) {
+        continue;
+      }
+
+      const std::string path = treePath(directoryName, particleTreeName);
+      particleChain->AddFile(fileName.c_str(), nParticles, path.c_str());
+      totalParticleEntries += nParticles;
+    }
+  }
+
+  void buildInputChain(std::size_t firstFile, std::size_t lastFile)
+  {
+    chunks.clear();
+
+    particleChain = std::make_unique<TChain>(particleTreeName.c_str());
+
+    totalParticleEntries = 0;
+    totalInputEvents = 0;
+
+    for (std::size_t i = firstFile; i < lastFile; ++i) {
+      std::cout << "Ditto AO2D tuner: indexing file "
+                << i + 1 << "/" << config.mInputFiles.size()
+                << ": " << config.mInputFiles[i] << "\n";
+
+      appendFileToChain(config.mInputFiles[i], i);
+    }
+
+    if (!particleChain || chunks.empty()) {
+      throw std::runtime_error("Ditto::AO2DTuner: no AO2D input chunks found");
+    }
+
+    std::cout << "Ditto AO2D tuner: batch contains "
+              << chunks.size() << " dataframe chunks, "
+              << totalParticleEntries << " MC-particle entries and "
+              << totalInputEvents << " MC collisions\n";
+  }
+
+  void processEmptyInput()
+  {
+    for (const auto& chunk : chunks) {
+      eventBuffer.clear();
+      for (Long64_t collision = 0; collision < chunk.nCollisions && !reachedEventLimit(); ++collision) {
+        submitEvent();
+      }
+      if (reachedEventLimit()) {
+        return;
+      }
+    }
+  }
+
+  void processChain()
+  {
+    if (totalParticleEntries == 0) {
+      processEmptyInput();
+      return;
+    }
+
+    // The particle chain is the hot I/O path. Read only the branches used by
+    // the tuner; this matters substantially for large AO2Ds and remote input.
+    particleChain->SetBranchStatus("*", false);
+    particleChain->SetBranchStatus("fIndexMcCollisions", true);
+    particleChain->SetBranchStatus("fPdgCode", true);
+    particleChain->SetBranchStatus("fStatusCode", true);
+    particleChain->SetBranchStatus("fFlags", true);
+    particleChain->SetBranchStatus("fPx", true);
+    particleChain->SetBranchStatus("fPy", true);
+    particleChain->SetBranchStatus("fPz", true);
+    particleChain->SetBranchStatus("fVx", true);
+    particleChain->SetBranchStatus("fVy", true);
+
+    TTreeReader reader(particleChain.get());
     TTreeReaderValue<int> mcCollisionId(reader, "fIndexMcCollisions");
     TTreeReaderValue<int> pdgCode(reader, "fPdgCode");
     TTreeReaderValue<int> statusCode(reader, "fStatusCode");
@@ -400,71 +594,74 @@ struct AO2DTunerImpl {
     TTreeReaderValue<float> vx(reader, "fVx");
     TTreeReaderValue<float> vy(reader, "fVy");
 
-    Long64_t currentCollision = 0;
-    eventBuffer.clear();
+    Long64_t consumedParticleEntries = 0;
 
-    while (reader.Next()) {
+    for (const auto& chunk : chunks) {
       if (reachedEventLimit()) {
         return;
       }
 
-      const int collision = *mcCollisionId;
-      if (collision < 0 || collision >= nCollisions) {
-        throw std::runtime_error("Ditto::AO2DTuner: MC particle refers to invalid collision index " + std::to_string(collision) +
-                                 " while nCollisions = " + std::to_string(nCollisions));
-      }
-      if (collision < currentCollision) {
-        throw std::runtime_error(
-          "Ditto::AO2DTuner: O2mcparticle is not ordered by MC collision index; "
-          "streaming grouping cannot be used safely");
-      }
+      Long64_t currentCollision = 0;
+      eventBuffer.clear();
 
-      while (currentCollision < collision) {
-        submitEvent();
+      for (Long64_t localEntry = 0; localEntry < chunk.nParticleEntries; ++localEntry) {
         if (reachedEventLimit()) {
           return;
         }
+
+        if (!reader.Next()) {
+          throw std::runtime_error("Ditto::AO2DTuner: TChain ended before the indexed AO2D particle count was reached while reading " +
+                                   chunk.fileName + ":" +
+                                   (chunk.directoryName.empty() ? std::string("/") : chunk.directoryName));
+        }
+        ++consumedParticleEntries;
+
+        const int collision = *mcCollisionId;
+        if (collision < 0 || collision >= chunk.nCollisions) {
+          throw std::runtime_error("Ditto::AO2DTuner: MC particle refers to invalid collision index " +
+                                   std::to_string(collision) + " in " + chunk.fileName + ":" +
+                                   (chunk.directoryName.empty() ? std::string("/") : chunk.directoryName) +
+                                   " while nCollisions = " + std::to_string(chunk.nCollisions));
+        }
+
+        if (collision < currentCollision) {
+          throw std::runtime_error("Ditto::AO2DTuner: " + particleTreeName +
+                                   " is not ordered by MC collision index in " + chunk.fileName + ":" +
+                                   (chunk.directoryName.empty() ? std::string("/") : chunk.directoryName) +
+                                   "; streaming grouping cannot be used safely");
+        }
+
+        while (currentCollision < collision) {
+          submitEvent();
+          if (reachedEventLimit()) {
+            return;
+          }
+          ++currentCollision;
+        }
+
+        addParticle(*pdgCode,
+                    *statusCode,
+                    static_cast<std::uint8_t>(*flags),
+                    *px,
+                    *py,
+                    *pz,
+                    *vx,
+                    *vy);
+      }
+
+      // fIndexMcCollisions is local to each DF. Flush the remaining collisions
+      // here and reset before the next chunk rather than treating the TChain as
+      // one global collision-index space.
+      while (currentCollision < chunk.nCollisions && !reachedEventLimit()) {
+        submitEvent();
         ++currentCollision;
       }
-
-      addParticle(*pdgCode,
-                  *statusCode,
-                  static_cast<std::uint8_t>(*flags),
-                  *px,
-                  *py,
-                  *pz,
-                  *vx,
-                  *vy);
     }
 
-    while (currentCollision < nCollisions && !reachedEventLimit()) {
-      submitEvent();
-      ++currentCollision;
-    }
-  }
-
-  void processFile(const std::string& fileName)
-  {
-    if (startsWith(fileName, "alien://") && !gGrid) {
-      if (TGrid::Connect("alien://") == nullptr) {
-        throw std::runtime_error("Ditto::AO2DTuner: could not connect to AliEn");
-      }
-    }
-    std::unique_ptr<TFile> file(TFile::Open(fileName.c_str(), "READ"));
-    if (!file || file->IsZombie()) {
-      throw std::runtime_error("Ditto::AO2DTuner: could not open AO2D file: " + fileName);
-    }
-
-    const auto directories = dataframeDirectories(*file);
-    if (directories.empty()) {
-      throw std::runtime_error("Ditto::AO2DTuner: no DF_* directories containing O2mcparticle found in " + fileName);
-    }
-
-    for (auto* directory : directories) {
-      if (reachedEventLimit()) {
-        break;
-      }
-      processDirectory(*directory, fileName);
+    if (!reachedEventLimit() && consumedParticleEntries != totalParticleEntries) {
+      throw std::runtime_error("Ditto::AO2DTuner: particle-chain accounting mismatch: consumed " +
+                               std::to_string(consumedParticleEntries) + " entries, expected " +
+                               std::to_string(totalParticleEntries));
     }
   }
 
@@ -480,58 +677,89 @@ struct AO2DTunerImpl {
     ran = true;
     const auto start = std::chrono::steady_clock::now();
 
-    int counter = 0;
-    for (const auto& fileName : config.mInputFiles) {
-      if (reachedEventLimit()) {
-        break;
-      }
-      const auto timeBefore = std::chrono::steady_clock::now();
-      std::cout << "Ditto AO2D tuner: reading file " << counter + 1 << "/" << config.mInputFiles.size() << ": " << fileName << "\n";
-      processFile(fileName);
-      const auto timeAfter = std::chrono::steady_clock::now();
-      const auto singleFileElapsed = std::chrono::duration<double>(timeAfter - timeBefore).count();
-      std::cout << "\tDitto AO2D tuner: finished reading file " << counter + 1 << "/" << config.mInputFiles.size() << " in " << singleFileElapsed << "s\n";
-      const auto totalElapsed = std::chrono::duration<double>(timeAfter - start).count();
-      const auto totalEvents = accumulator->processedEvents();
-      const auto secondsPerEvent = totalEvents > 0 ? totalElapsed / static_cast<double>(totalEvents) : 0.0;
-      const auto secondsPerFile = (counter + 1) > 0 ? totalElapsed / static_cast<double>(counter + 1) : 0.0;
-      std::cout << "\t\tEvent rate: " << 1.0 / secondsPerEvent << " events/s.";
-      std::cout << "\tFile rate: " << 1.0 / secondsPerFile << " files/s.";
-      if (config.mMaxEvents > 0) {
-        std::cout << "\tETA: " << (config.mMaxEvents - totalEvents) * secondsPerEvent << " s\n";
-      } else {
-        std::cout << "\tETA: " << (config.mInputFiles.size() - counter - 1) * secondsPerFile << " s\n";
-      }
-      counter++;
+    //
+    // Detect the AO2D schema once, from the first input file.
+    //
+    discoverInputSchema();
+
+    const std::size_t nFiles = config.mInputFiles.size();
+    const std::size_t batchSize = config.mFileBatchSize > 0 ? config.mFileBatchSize : nFiles;
+
+    for (std::size_t first = 0; first < nFiles && !reachedEventLimit(); first += batchSize) {
+
+      const std::size_t last = std::min(first + batchSize, nFiles);
+
+      std::cout << "\nDitto AO2D tuner: processing file batch "
+                << first + 1 << "-" << last
+                << "/" << nFiles << "\n";
+
+      buildInputChain(first, last);
+
+      processChain();
+
+      //
+      // The chain and its file handles are no longer needed.
+      //
+      particleChain.reset();
+      chunks.clear();
+
+      //
+      // Overall progress / ETA.
+      //
+      const std::size_t completedFiles = last;
+
+      const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+
+      const double secondsPerFile = completedFiles > 0 ? elapsed / static_cast<double>(completedFiles) : 0.0;
+
+      const double eta = secondsPerFile * static_cast<double>(nFiles - completedFiles);
+
+      const double fraction = static_cast<double>(completedFiles) / static_cast<double>(nFiles);
+
+      std::cout << "Ditto AO2D tuner: "
+                << completedFiles << "/" << nFiles
+                << " files complete"
+                << " (" << 100.0 * fraction << "%)"
+                << ", elapsed " << formatDuration(elapsed)
+                << ", ETA " << formatDuration(eta)
+                << "\n";
     }
 
     accumulator->finalize();
 
     const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    const auto nEvents = accumulator->processedEvents();
+    const double eventRate = elapsed > 0.0 ? static_cast<double>(nEvents) / elapsed : 0.0;
 
     std::cout << "\nDitto AO2D tuning complete\n"
-              << "  events             : " << accumulator->processedEvents() << "\n"
-              << "  particles read     : " << processedParticles << "\n"
-              << "  particles selected : " << selectedParticles << "\n"
-              << "  unknown PDGs       : " << unknownPdgParticles << "\n"
-              << "  wall time          : " << elapsed << " s\n"
-              << "  composition pairs  : " << accumulator->tune().numberOfCompositionPairs() << "\n"
-              << "  templates stored   : " << accumulator->tune().numberOfCompositionTemplates() << "\n";
+              << " events               : " << nEvents << "\n"
+              << " particles read       : " << processedParticles << "\n"
+              << " particles selected   : " << selectedParticles << "\n"
+              << " unknown PDGs         : " << unknownPdgParticles << "\n"
+              << " wall time            : " << elapsed << " s\n"
+              << " event rate           : " << eventRate << " events/s\n"
+              << " composition pairs    : "
+              << accumulator->tune().numberOfCompositionPairs() << "\n"
+              << " templates stored     : "
+              << accumulator->tune().numberOfCompositionTemplates() << "\n";
 
     if (accumulator->activityOverflowEvents() > 0) {
-      std::cout << "  WARNING activity overflow events: " << accumulator->activityOverflowEvents() << "\n";
+      std::cout << " WARNING activity overflow events: " << accumulator->activityOverflowEvents() << "\n";
     }
+
     if (accumulator->ptOverflowParticles() > 0) {
-      std::cout << "  WARNING pT overflow particles: " << accumulator->ptOverflowParticles() << "\n";
+      std::cout << " WARNING pT overflow particles: " << accumulator->ptOverflowParticles() << "\n";
     }
+
     if (accumulator->speciesMultiplicityOverflowEvents() > 0) {
-      std::cout << "  WARNING species-count overflow fills: " << accumulator->speciesMultiplicityOverflowEvents() << "\n";
+      std::cout << " WARNING species-count overflow fills: " << accumulator->speciesMultiplicityOverflowEvents() << "\n";
     }
   }
 };
 
-AO2DTuner::AO2DTuner(const AO2DTunerConfig& config)
-  : mImpl(new AO2DTunerImpl(config))
+std::size_t AO2DTunerImpl::InputChunk::nextFileIndex = 0;
+
+AO2DTuner::AO2DTuner(const AO2DTunerConfig& config) : mImpl(new AO2DTunerImpl(config))
 {
 }
 
@@ -539,17 +767,6 @@ AO2DTuner::~AO2DTuner()
 {
   delete mImpl;
   mImpl = nullptr;
-}
-
-void AO2DTuner::addFile(const std::string& fileName)
-{
-  if (!mImpl) {
-    throw std::runtime_error("Ditto::AO2DTuner: invalid implementation");
-  }
-  if (mImpl->ran) {
-    throw std::runtime_error("Ditto::AO2DTuner: cannot add files after run()");
-  }
-  mImpl->config.mInputFiles.push_back(fileName);
 }
 
 void AO2DTuner::run()
