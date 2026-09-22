@@ -51,17 +51,21 @@ add_library(Ditto SHARED
 
 add_library(Ditto::Ditto ALIAS Ditto)
 
-ROOT_GENERATE_DICTIONARY(DittoDict
-  ${CMAKE_CURRENT_SOURCE_DIR}/Tuning/DittoTune.h
-  LINKDEF ${CMAKE_CURRENT_SOURCE_DIR}/Tuning/LinkDef.h
-  MODULE Ditto
-)
-
 target_include_directories(Ditto
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Generation>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Tuning>
-    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:include/Ditto>
+)
+
+# IMPORTANT:
+# Pass dictionary headers exactly as they are included in the C++ sources.
+# Using an absolute source path here makes the ROOT dictionary non-relocatable:
+# rootcling would store the build-machine source path in the dictionary payload.
+ROOT_GENERATE_DICTIONARY(DittoDict
+  DittoTune.h
+  LINKDEF ${CMAKE_CURRENT_SOURCE_DIR}/Tuning/LinkDef.h
+  MODULE Ditto
 )
 
 target_link_libraries(Ditto
