@@ -13,6 +13,7 @@
 
 #include "Ditto.h"
 
+#include "DittoSignal.h"
 #include "DittoTune.h"
 
 #include <TClonesArray.h>
@@ -101,7 +102,6 @@ namespace
 {
 
 constexpr double kTwoPi = 6.283185307179586476925286766559;
-
 // Exact-Nch mean-pT bins below this particle count are left uncorrected. The
 // raw count histograms are persisted in Tune v6, so this protects the runtime
 // model from statistical excursions in very sparse species / multiplicity bins.
@@ -290,9 +290,7 @@ double meanOfCDF(const TuneCDF& cdf)
 {
   const std::size_t nBins = cdf.cumulative.size();
 
-  if (nBins == 0 ||
-      cdf.lowEdges.size() != nBins ||
-      cdf.highEdges.size() != nBins) {
+  if (nBins == 0 || cdf.lowEdges.size() != nBins || cdf.highEdges.size() != nBins) {
     return 0.0;
   }
 
@@ -301,21 +299,18 @@ double meanOfCDF(const TuneCDF& cdf)
   double firstMoment = 0.0;
 
   for (std::size_t i = 0; i < nBins; ++i) {
-    const double weight =
-      std::max(0.0, cdf.cumulative[i] - previous);
+    const double weight = std::max(0.0, cdf.cumulative[i] - previous);
 
     previous = cdf.cumulative[i];
 
-    const double center =
-      0.5 * (cdf.lowEdges[i] + cdf.highEdges[i]);
+    const double center = 0.5 * (cdf.lowEdges[i] + cdf.highEdges[i]);
 
     normalization += weight;
     firstMoment += weight * center;
   }
 
-  return normalization > 0.0
-           ? firstMoment / normalization
-           : 0.0;
+  return normalization > 0.0 ? firstMoment / normalization
+                             : 0.0;
 }
 
 TuneAliasSampler makeAliasSampler(const TuneCDF& cdf)
@@ -423,11 +418,9 @@ TuneDiscreteAliasSampler makeDiscreteAliasSampler(const TuneCDF& cdf)
     result.values[i] = static_cast<int>(std::llround(0.5 * (cdf.lowEdges[i] + cdf.highEdges[i])));
 
     const double weight = std::max(0.0, cdf.cumulative[i] - previous);
-
     previous = cdf.cumulative[i];
 
     scaled[i] = weight * static_cast<double>(nBins);
-
     result.alias[i] = static_cast<std::uint32_t>(i);
 
     if (scaled[i] < 1.0) {
@@ -439,17 +432,13 @@ TuneDiscreteAliasSampler makeDiscreteAliasSampler(const TuneCDF& cdf)
 
   while (!small.empty() && !large.empty()) {
     const std::size_t smallIndex = small.back();
-
     small.pop_back();
 
     const std::size_t largeIndex = large.back();
-
     large.pop_back();
 
     result.probability[smallIndex] = std::clamp(scaled[smallIndex], 0.0, 1.0);
-
     result.alias[smallIndex] = static_cast<std::uint32_t>(largeIndex);
-
     scaled[largeIndex] = scaled[largeIndex] + scaled[smallIndex] - 1.0;
 
     if (scaled[largeIndex] < 1.0) {
@@ -486,6 +475,14 @@ Generator::Generator(const Config& config) : mConfig(config),
   validateConfig();
   loadTune(mConfig.mTuneFile);
 
+  if (!mConfig.mSignalFile.empty()) {
+    constexpr std::uint64_t kSignalSeedOffset = 0x9e3779b97f4a7c15ULL;
+    mSignalInjector = new SignalInjector(mConfig.mSignalFile,
+                                         mTune->mActivityEdges,
+                                         mTune->mFinalStatus,
+                                         mConfig.mSeed + kSignalSeedOffset);
+  }
+
   const double meanMultiplicity = mTune->mHNSelected.GetMean();
 
   const double rmsMultiplicity = mTune->mHNSelected.GetRMS();
@@ -513,6 +510,9 @@ Generator::~Generator()
   delete mParticles;
   mParticles = nullptr;
 
+  delete mSignalInjector;
+  mSignalInjector = nullptr;
+
   delete mTuneRuntime;
   mTuneRuntime = nullptr;
 
@@ -535,8 +535,7 @@ double Generator::averageGenerationTimeUs() const
     return 0.0;
   }
 
-  return 1.0e6 * mTiming.mGeneration /
-         static_cast<double>(mTiming.mGeneratedEvents);
+  return 1.0e6 * mTiming.mGeneration / static_cast<double>(mTiming.mGeneratedEvents);
 }
 
 void Generator::resetTimingMetrics()
@@ -793,78 +792,59 @@ void Generator::loadTune(const std::string& fileName)
       speciesData.etaOutsideCentralGivenActivity.push_back(makeAliasSampler(makeEtaSliceCDF(entry->mPEtaGivenActivity, i, tune->mActivityEtaMax, false)));
     }
 
-    speciesData.centralPtScaleByNch.assign(
-      static_cast<std::size_t>(maximumNch + 1),
-      1.0);
-
-    speciesData.otherPtScaleByNch.assign(
-      static_cast<std::size_t>(maximumNch + 1),
-      1.0);
+    speciesData.centralPtScaleByNch.assign(static_cast<std::size_t>(maximumNch + 1), 1.0);
+    speciesData.otherPtScaleByNch.assign(static_cast<std::size_t>(maximumNch + 1), 1.0);
 
     const auto fillPtScale = [&](const TH1D& meanPt,
                                  const TH1D& particleCount,
                                  int nch,
                                  double baselineMean,
                                  double& scale) {
-      if (baselineMean <= 0.0 ||
-          !std::isfinite(baselineMean)) {
+      if (baselineMean <= 0.0 || !std::isfinite(baselineMean)) {
         return;
       }
 
-      const int bin =
-        particleCount.GetXaxis()->FindFixBin(nch);
+      const int bin = particleCount.GetXaxis()->FindFixBin(nch);
 
-      if (bin < 1 ||
-          bin > particleCount.GetNbinsX()) {
+      if (bin < 1 || bin > particleCount.GetNbinsX()) {
         return;
       }
 
-      const double count =
-        particleCount.GetBinContent(bin);
+      const double count = particleCount.GetBinContent(bin);
 
       if (count < kMinPtMeanCorrectionParticles) {
         return;
       }
 
-      const double targetMean =
-        meanPt.GetBinContent(bin);
+      const double targetMean = meanPt.GetBinContent(bin);
 
-      if (targetMean <= 0.0 ||
-          !std::isfinite(targetMean)) {
+      if (targetMean <= 0.0 || !std::isfinite(targetMean)) {
         return;
       }
 
-      scale =
-        targetMean / baselineMean;
+      scale = targetMean / baselineMean;
     };
 
-    for (int nch = 0;
-         nch <= maximumNch;
-         ++nch) {
-      const int activityClass =
-        runtime->activityClassByNch[static_cast<std::size_t>(nch)];
+    for (int nch = 0; nch <= maximumNch; ++nch) {
+      const int activityClass = runtime->activityClassByNch[static_cast<std::size_t>(nch)];
 
-      if (activityClass < 0 ||
-          activityClass >= nActivityClasses) {
+      if (activityClass < 0 || activityClass >= nActivityClasses) {
         continue;
       }
 
-      const double baselineMean =
-        meanPtGivenActivity[static_cast<std::size_t>(activityClass)];
+      const double baselineMean = meanPtGivenActivity[static_cast<std::size_t>(activityClass)];
 
-      fillPtScale(
-        entry->mHCentralChargedMeanPtVsNch,
-        entry->mHCentralChargedPtCountVsNch,
-        nch,
-        baselineMean,
-        speciesData.centralPtScaleByNch[static_cast<std::size_t>(nch)]);
+      fillPtScale(entry->mHCentralChargedMeanPtVsNch,
+                  entry->mHCentralChargedPtCountVsNch,
+                  nch,
+                  baselineMean,
+                  speciesData.centralPtScaleByNch[static_cast<std::size_t>(nch)]);
 
-      fillPtScale(
-        entry->mHOtherMeanPtVsNch,
-        entry->mHOtherPtCountVsNch,
-        nch,
-        baselineMean,
-        speciesData.otherPtScaleByNch[static_cast<std::size_t>(nch)]);
+      fillPtScale(entry->mHOtherMeanPtVsNch,
+                  entry->mHOtherPtCountVsNch,
+                  nch,
+                  baselineMean,
+                  speciesData.otherPtScaleByNch[static_cast<std::size_t>(nch)]);
     }
 
     runtime->species.push_back(std::move(speciesData));
@@ -952,8 +932,7 @@ int Generator::sampleMultiplicity(EventInfo& info)
 
   const int nch = sampleDiscreteAlias(mTuneRuntime->nch);
 
-  if (nch < 0 ||
-      static_cast<std::size_t>(nch) >= mTuneRuntime->nSelectedGivenNch.size()) {
+  if (nch < 0 || static_cast<std::size_t>(nch) >= mTuneRuntime->nSelectedGivenNch.size()) {
     throw std::runtime_error("Ditto: could not sample a valid Nch from the generator card");
   }
 
@@ -1007,8 +986,7 @@ void Generator::sampleComposition(const EventInfo& info,
 
   const std::uint64_t base = templateIndex * static_cast<std::uint64_t>(nSpecies);
 
-  if (base + nSpecies > mTune->mCompositionCentralCounts.size() ||
-      base + nSpecies > mTune->mCompositionOtherCounts.size()) {
+  if (base + nSpecies > mTune->mCompositionCentralCounts.size() || base + nSpecies > mTune->mCompositionOtherCounts.size()) {
     throw std::runtime_error("Ditto: composition-template index is out of range");
   }
 
@@ -1350,8 +1328,7 @@ const EventInfo& Generator::generate()
 
   const int nOther = mEvent.mConditioningNSelected - mEvent.mConditioningNch;
 
-  if (nCentralCharged < 0 ||
-      nOther < 0) {
+  if (nCentralCharged < 0 || nOther < 0) {
     throw std::runtime_error("Ditto: invalid tuned event multiplicities");
   }
 
@@ -1371,9 +1348,7 @@ const EventInfo& Generator::generate()
 
   const auto generateCounts = [&](const std::vector<int>& counts,
                                   bool centralCharged) {
-    for (std::size_t iSpecies = 0;
-         iSpecies < counts.size();
-         ++iSpecies) {
+    for (std::size_t iSpecies = 0; iSpecies < counts.size(); ++iSpecies) {
       const int count = counts[iSpecies];
 
       if (count <= 0) {
@@ -1386,16 +1361,14 @@ const EventInfo& Generator::generate()
 
       const std::size_t nch = static_cast<std::size_t>(mEvent.mConditioningNch);
 
-      const auto& ptScaleByNch = centralCharged
-                                   ? species.centralPtScaleByNch
-                                   : species.otherPtScaleByNch;
+      const auto& ptScaleByNch = centralCharged ? species.centralPtScaleByNch
+                                                : species.otherPtScaleByNch;
 
       if (nch >= ptScaleByNch.size()) {
         throw std::runtime_error("Ditto: exact-Nch pT correction index is out of range");
       }
 
-      const double ptScale =
-        ptScaleByNch[nch];
+      const double ptScale = ptScaleByNch[nch];
 
       const TuneAliasSampler* etaSampler = nullptr;
 
@@ -1411,9 +1384,7 @@ const EventInfo& Generator::generate()
         etaSampler = &species.etaGivenActivity[mEvent.mActivityClass];
       }
 
-      if (ptSampler.probability.empty() ||
-          !etaSampler ||
-          etaSampler->probability.empty()) {
+      if (ptSampler.probability.empty() || !etaSampler || etaSampler->probability.empty()) {
         throw std::runtime_error("Ditto: empty tuned kinematic sampler for PDG " + std::to_string(species.pdg));
       }
 
@@ -1426,8 +1397,7 @@ const EventInfo& Generator::generate()
 
           particle = static_cast<TParticle*>(mParticles->ConstructedAt(particleIndex));
 
-          mTiming.mConstructedAt += std::chrono::duration<double>(Clock::now() - start)
-                                      .count();
+          mTiming.mConstructedAt += std::chrono::duration<double>(Clock::now() - start).count();
         } else {
           particle = static_cast<TParticle*>(mParticles->ConstructedAt(particleIndex));
         }
@@ -1455,6 +1425,18 @@ const EventInfo& Generator::generate()
     throw std::runtime_error("Ditto: constrained species counts do not reproduce Nselected");
   }
 
+  // Overlay the signal only after the minimum-bias event is fully fixed. The
+  // injector consumes the same activity class selected from the sampled exact
+  // Nch; it never resamples activity and does not alter the conditioning
+  // variables of the background event.
+  mEvent.mInjectedParticles = 0;
+  if (mSignalInjector) {
+    mEvent.mInjectedParticles = mSignalInjector->inject(*mParticles,
+                                                        particleIndex,
+                                                        mEvent.mActivityClass);
+    particleIndex += mEvent.mInjectedParticles;
+  }
+
   if (detailed) {
     mTiming.mParticleLoop += std::chrono::duration<double>(Clock::now() - particleLoopStart).count();
   }
@@ -1467,7 +1449,7 @@ const EventInfo& Generator::generate()
 
     ++mTiming.mGeneratedEvents;
 
-    mTiming.mGeneratedParticles += static_cast<std::uint64_t>(multiplicity);
+    mTiming.mGeneratedParticles += static_cast<std::uint64_t>(particleIndex);
   }
 
   if (mTree) {

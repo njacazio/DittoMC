@@ -45,6 +45,7 @@ set(Ditto_PYTHIA_TARGET Ditto::Pythia8)
 
 add_library(Ditto SHARED
   Generation/Ditto.cxx
+  Generation/DittoSignal.cxx
   Tuning/DittoTune.cxx
   Tuning/DittoTuneDownload.cxx
 )
@@ -115,6 +116,7 @@ install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/"
 
 install(FILES
   Generation/Ditto.h
+  Generation/DittoSignal.h
   Tuning/DittoTune.h
   Tuning/DittoPythiaTuner.h
   Tuning/DittoAO2DTuner.h
@@ -126,17 +128,7 @@ install(FILES
 include(CTest)
 
 if(BUILD_TESTING)
-  add_executable(testTuneAccumulator
-    Tuning/tests/testTuneAccumulator.cxx
-  )
-
-  target_link_libraries(testTuneAccumulator
-    PRIVATE
-      Ditto::Ditto
-      Ditto::DittoTuner
-  )
-
   add_test(NAME TuneAccumulator
-    COMMAND testTuneAccumulator
+    COMMAND root -l -b -q 'Tuning/tests/testTuneAccumulator.C'
   )
 endif()

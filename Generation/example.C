@@ -42,8 +42,9 @@ void example(const int nEvents,
   Ditto::Generator generator(cfg);
 
   // Register the output
-  if (saveTTree)
+  if (saveTTree) {
     generator.registerTTreeOutput("Generation/Ditto.root");
+  }
 
   Pythia8::Pythia pythia;
 

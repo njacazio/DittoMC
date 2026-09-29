@@ -258,7 +258,7 @@ class Tune : public TObject
   std::string mPythiaCard = "";        /// Name of the PYTHIA card used to generate the tune. This is stored in the tune for provenance and reproducibility, but is not used by Ditto at runtime.
   std::string mPythiaCardContent = ""; /// Content of the PYTHIA card used to generate the tune. This is stored in the tune for provenance and reproducibility, but is not used by Ditto at runtime.
 
-  ClassDefOverride(Tune, 8);
+  ClassDefOverride(Tune, 9);
 };
 
 } // namespace Ditto

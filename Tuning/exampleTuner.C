@@ -66,7 +66,7 @@ void exampleTuner(std::uint64_t nEvents, const std::string pythiaCard,
   std::cout << "Generated " << tuner.generatedEvents() << " successful PYTHIA events\n";
 }
 
-void exampleTuner(const int cfg = 1, const int events = 0)
+void exampleTuner(const int cfg = 0, const int events = 10000)
 {
 
   std::uint64_t nEvents = 0;

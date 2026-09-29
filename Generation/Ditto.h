@@ -36,11 +36,13 @@ namespace Ditto
 // All physics configuration belongs to the tune file: beam IDs, energy,
 // generated acceptance, particle species and the learned event/kinematic model.
 struct Config {
-  // Ditto tune / generator-card file produced by Ditto::Tuner.
+  /// Ditto tune / generator-card file produced by Ditto::Tuner.
   std::string mTuneFile;
 
-  // Ditto random seed. This is intentionally independent of the PYTHIA
-  // random seed stored in the teacher card.
+  /// Optional signal injection file. If empty, no signal is injected.
+  std::string mSignalFile;
+
+  /// Ditto random seed
   std::uint64_t mSeed = 1;
 
   // Measure total generator timing and print a summary when the Generator is
@@ -67,6 +69,10 @@ struct EventInfo {
   int mConditioningNch = -1;
   int mConditioningNSelected = -1;
   int mActivityClass = -1;
+
+  // Number of particles added by the optional signal overlay. The injected
+  // particles do not feed back into the background conditioning variables.
+  int mInjectedParticles = 0;
 };
 
 // Accumulated wall-clock timings. Values are stored in seconds.
@@ -107,6 +113,7 @@ struct TimingMetrics {
 };
 
 class Tune;
+class SignalInjector;
 struct TuneAliasSampler;
 struct TuneDiscreteAliasSampler;
 struct TuneRuntimeData;
@@ -156,9 +163,9 @@ class Generator
   mutable TimingMetrics mTiming;
 
   // The tune is mandatory and is the complete physics configuration.
-  Tune* mTune = nullptr;                   //!
-  TuneRuntimeData* mTuneRuntime = nullptr; //!
-
+  Tune* mTune = nullptr;                     //!
+  TuneRuntimeData* mTuneRuntime = nullptr;   //!
+  SignalInjector* mSignalInjector = nullptr; //!
   void validateConfig() const;
   void loadTune(const std::string& fileName);
 
