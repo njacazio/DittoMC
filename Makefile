@@ -44,13 +44,13 @@ tune: install
 	root -l -b -q Tuning/exampleTuner.C
 
 tunepp: install
-	root -l -b -q 'Tuning/exampleTuner.C(0, 1E6)'
+	root -l -b -q 'Tuning/exampleTuner.C(0, 1E7)'
 
 tuneOO: install
-	root -l -b -q 'Tuning/exampleTuner.C(1, 1E5)'
+	root -l -b -q 'Tuning/exampleTuner.C(1, 1E6)'
 
 tunePbPb: install
-	root -l -b -q 'Tuning/exampleTuner.C(2, 1E4)'
+	root -l -b -q 'Tuning/exampleTuner.C(2, 1E5)'
 
 tuneAll: tunepp tuneOO tunePbPb
 	echo "All tuning completed."

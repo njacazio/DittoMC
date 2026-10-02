@@ -16,6 +16,7 @@
 #include "DittoTune.h"
 
 #include <Pythia8/Pythia.h>
+#include <Pythia8/PythiaParallel.h>
 
 #include <chrono>
 #include <cmath>
@@ -60,7 +61,7 @@ struct TunerImpl {
   TunerConfig config;
   std::string outputFile;
 
-  std::unique_ptr<Pythia8::Pythia> pythia;
+  std::unique_ptr<Pythia8::PythiaParallel> pythia;
   std::unique_ptr<TuneAccumulator> accumulator;
   InputEvent eventBuffer;
 
@@ -83,29 +84,30 @@ struct TunerImpl {
   void configurePythia()
   {
     if (!pythia->readFile(config.pythiaCard)) {
-      throw std::runtime_error("Ditto::PythiaTuner: could not read PYTHIA card: " +
-                               config.pythiaCard);
+      throw std::runtime_error("Ditto::PythiaTuner: could not read PYTHIA card: " + config.pythiaCard);
     }
-
+    if (config.nThreads < 0) {
+      throw std::invalid_argument("Ditto::PythiaTuner: nThreads must be >= 0");
+    }
+    pythia->readString("Parallelism:numThreads = " + std::to_string(config.nThreads));
+    // Important: generation is parallel, accumulation stays serial.
+    pythia->readString("Parallelism:processAsync = off");
+    // Keep deterministic work distribution between workers.
+    pythia->readString("Parallelism:balanceLoad = on");
     const int frameType = pythia->settings.mode("Beams:frameType");
     if (frameType != 1) {
-      throw std::invalid_argument(
-        "Ditto::PythiaTuner: only Beams:frameType = 1 is currently supported");
+      throw std::invalid_argument("Ditto::PythiaTuner: only Beams:frameType = 1 is currently supported");
     }
-
     const double sqrtSNN = pythia->settings.parm("Beams:eCM");
     if (!std::isfinite(sqrtSNN) || sqrtSNN <= 0.0) {
       throw std::invalid_argument("Ditto::PythiaTuner: Beams:eCM must be > 0");
     }
-
     if (!pythia->init()) {
       throw std::runtime_error("Ditto::PythiaTuner: PYTHIA initialization failed");
     }
-
     for (const int pdg : config.mSpecies) {
       if (!pythia->particleData.isParticle(pdg)) {
-        throw std::invalid_argument("Ditto::PythiaTuner: unknown PDG code " +
-                                    std::to_string(pdg));
+        throw std::invalid_argument("Ditto::PythiaTuner: unknown PDG code " + std::to_string(pdg));
       }
     }
   }
@@ -154,9 +156,9 @@ struct TunerImpl {
     return accumulator->tune();
   }
 
-  void analyzeCurrentEvent()
+  void analyzeCurrentEvent(Pythia8::Pythia* pythiaNow)
   {
-    const auto& event = pythia->event;
+    const auto& event = pythiaNow->event;
 
     eventBuffer.clear();
     eventBuffer.reserve(static_cast<std::size_t>(event.size()));
@@ -188,13 +190,11 @@ struct TunerImpl {
   void run()
   {
     if (ran) {
-      throw std::runtime_error(
-        "Ditto::PythiaTuner: run() may only be called once per PythiaTuner instance");
+      throw std::runtime_error("Ditto::PythiaTuner: run() may only be called once per PythiaTuner instance");
     }
     ran = true;
 
-    const std::uint64_t maxAttempts = static_cast<std::uint64_t>(
-      std::ceil(config.maxAttemptsFactor * static_cast<double>(config.nEvents)));
+    const std::uint64_t maxAttempts = static_cast<std::uint64_t>(std::ceil(config.maxAttemptsFactor * static_cast<double>(config.nEvents)));
 
     const auto start = std::chrono::steady_clock::now();
 
@@ -203,33 +203,30 @@ struct TunerImpl {
         throw std::runtime_error("Ditto::PythiaTuner: too many failed PYTHIA attempts");
       }
 
-      ++attemptedEvents;
-      if (!pythia->next()) {
-        continue;
-      }
+      const std::uint64_t remainingEvents = config.nEvents - generatedEvents();
+      const std::uint64_t remainingAttempts = maxAttempts - attemptedEvents;
+      const std::uint64_t nAttempts = std::min(remainingEvents, remainingAttempts);
 
-      analyzeCurrentEvent();
+      const auto generatedPerThread = pythia->run(static_cast<long>(nAttempts), [&](Pythia8::Pythia* pythiaNow) {
+        analyzeCurrentEvent(pythiaNow);
+        const auto nGenerated = generatedEvents();
+        if (config.progressEvery > 0 && nGenerated % config.progressEvery == 0) {
 
-      const auto nGenerated = generatedEvents();
-      if (config.progressEvery > 0 && nGenerated % config.progressEvery == 0) {
-        const double elapsed = std::chrono::duration<double>(
-                                 std::chrono::steady_clock::now() - start)
-                                 .count();
-        const double eventsPerSecond =
-          elapsed > 0.0 ? static_cast<double>(nGenerated) / elapsed : 0.0;
-        const double etaSeconds =
-          eventsPerSecond > 0.0
-            ? static_cast<double>(config.nEvents - nGenerated) / eventsPerSecond
-            : 0.0;
+          const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
-        std::cout << "Ditto tuner: "
-                  << nGenerated
-                  << " / "
-                  << config.nEvents
-                  << " successful PYTHIA events (ETA: "
-                  << etaSeconds
-                  << " s)\n";
-      }
+          const double eventsPerSecond = elapsed > 0.0 ? static_cast<double>(nGenerated) / elapsed : 0.0;
+          const double etaSeconds = eventsPerSecond > 0.0 ? static_cast<double>(config.nEvents - nGenerated) / eventsPerSecond : 0.0;
+          std::cout << "Ditto tuner: "
+                    << nGenerated
+                    << " / "
+                    << config.nEvents
+                    << " successful PYTHIA events (ETA: "
+                    << etaSeconds
+                    << " s)\n";
+        }
+      });
+
+      attemptedEvents += nAttempts;
     }
 
     const auto end = std::chrono::steady_clock::now();
@@ -273,9 +270,7 @@ struct TunerImpl {
     }
 
     if (tune().mCentralChargedCoverageMismatchEvents > 0) {
-      const double eventFraction =
-        static_cast<double>(tune().mCentralChargedCoverageMismatchEvents) /
-        static_cast<double>(nGenerated);
+      const double eventFraction = static_cast<double>(tune().mCentralChargedCoverageMismatchEvents) / static_cast<double>(nGenerated);
 
       std::cout << "  WARNING selected species do not cover all central charged particles in "
                 << tune().mCentralChargedCoverageMismatchEvents
@@ -324,8 +319,7 @@ PythiaTuner::PythiaTuner(const TunerConfig& config)
 
   const std::string cardDir = cardPath(impl->config.pythiaCard);
   const std::string cardFileStem = cardStem(impl->config.pythiaCard);
-  const std::string outputDir =
-    (cardDir.empty() ? "." : cardDir) + "/../tunes/";
+  const std::string outputDir = (cardDir.empty() ? "." : cardDir) + "/../tunes/";
 
   if (!std::filesystem::exists(outputDir)) {
     std::filesystem::create_directories(outputDir);
@@ -335,7 +329,7 @@ PythiaTuner::PythiaTuner(const TunerConfig& config)
 
   // Use PYTHIA's standard construction / installation lookup. In particular,
   // PYTHIA8DATA is honored by PYTHIA itself when it is set.
-  impl->pythia = std::make_unique<Pythia8::Pythia>();
+  impl->pythia = std::make_unique<Pythia8::PythiaParallel>();
   impl->configurePythia();
   impl->configureAccumulator();
 

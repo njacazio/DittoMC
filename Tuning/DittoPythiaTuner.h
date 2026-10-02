@@ -44,6 +44,10 @@ struct TunerConfig : public TuneAccumulatorConfig {
 
   /// Protect against an infinite loop if PYTHIA repeatedly fails.
   double maxAttemptsFactor = 5.0;
+
+  /// Number of PYTHIA worker threads.
+  /// 0 lets PYTHIA choose from std::thread::hardware_concurrency().
+  int nThreads = 0;
 };
 
 // Opaque runtime implementation. Its definition lives only in
