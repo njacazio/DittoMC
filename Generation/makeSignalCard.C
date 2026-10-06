@@ -78,8 +78,7 @@ double etaWeight(double eta, double width, double exponent = 4.0)
 
 } // namespace
 
-void makeSignalCard(const char* tuneFile = "Tuning/tunes/Ditto_tune_pythia8_inel_136tev.root",
-                    const char* outputFile = "signal.root")
+void makeSignalCard(const char* tuneFile, const char* outputFile)
 {
   auto tune = Ditto::Tune::load(tuneFile);
   if (!tune || tune->mActivityEdges.size() < 2) {
@@ -163,14 +162,9 @@ void makeSignalCard(const char* tuneFile = "Tuning/tunes/Ditto_tune_pythia8_inel
       // A mild activity dependence is included as an example: harder spectra
       // at larger activity. The independent variable is exactly the same
       // activity class used by Ditto itself.
-      const double activityFraction =
-        nActivity > 1
-          ? static_cast<double>(iActivity - 1) /
-              static_cast<double>(nActivity - 1)
-          : 0.0;
+      const double activityFraction = nActivity > 1 ? static_cast<double>(iActivity - 1) / static_cast<double>(nActivity - 1) : 0.0;
 
-      const double temperature =
-        0.55 + 0.15 * activityFraction; // GeV
+      const double temperature = 0.55 + 0.15 * activityFraction; // GeV
 
       for (int iPt = 1; iPt <= signalPt->GetNbinsY(); ++iPt) {
         const double pt = signalPt->GetYaxis()->GetBinCenter(iPt);
@@ -203,4 +197,18 @@ void makeSignalCard(const char* tuneFile = "Tuning/tunes/Ditto_tune_pythia8_inel
   output->Close();
 
   Printf("Wrote signal card to %s", outputFile);
+}
+
+void makeSignalCard(const int mode)
+{
+  switch (mode) {
+    case 0:
+      makeSignalCard("Tuning/tunes/Ditto_tune_pythia8_inel_136tev.root", "signal.root");
+      break;
+    case 1:
+      makeSignalCard("Tuning/tunes/Ditto_tune_pythia8_PbPb_536tev.root", "signal_pbpb.root");
+      break;
+    default:
+      throw std::invalid_argument("Invalid mode for makeSignalCard");
+  }
 }
